@@ -38,7 +38,9 @@ enum ControlIndex {
   EnableThermalProfile,
   FinalGlideBarDisplayModeControl,
   EnableFinalGlideBarMC0,
-  EnableVarioBar
+  EnableVarioBar,
+  SPACER,
+  NavigatorSzHeight
 };
 
 static constexpr StaticEnumChoice final_glide_bar_display_mode_list[] = {
@@ -142,8 +144,20 @@ GaugesConfigPanel::Prepare(ContainerWindow &parent,
   AddBoolean(_("Vario bar"),
              _("If set to ON the vario bar will be shown"),
              map_settings.vario_bar_enabled);
-
   SetExpertRow(EnableVarioBar);
+
+  AddSpacer();
+  SetExpertRow(SPACER);
+
+  AddInteger(
+    _("Navigator Height"),
+    _("Select the height of the navigator topwidget (percentage of the main window).\n\n"
+      "This widget is set in the System Menu --> Look --> Pages --> Top Area\n\n"
+      "Warning: a big size could lead to a bad presentation of the datas.\n"
+      "to be setted accordingly to the size of the screen device.\n\n"),
+    _T("%u %%"), _T("%u"), 1, 40, 1,
+    ui_settings.navigator.navigator_height); //settings.min_frequency
+  SetExpertRow(NavigatorSzHeight);
 }
 
 bool
@@ -174,8 +188,14 @@ GaugesConfigPanel::Save(bool &_changed) noexcept
   changed |= SaveValue(EnableFinalGlideBarMC0, ProfileKeys::EnableFinalGlideBarMC0,
                        map_settings.final_glide_bar_mc0_enabled);
 
+                       
   changed |= SaveValue(EnableVarioBar, ProfileKeys::EnableVarioBar,
                        map_settings.vario_bar_enabled);
+
+  if ((changed |= SaveValue(NavigatorSzHeight, ProfileKeys::NavigatorHeight,
+                            ui_settings.navigator.navigator_height)))
+    CommonInterface::main_window->ReinitialiseLayout();
+
   _changed |= changed;
 
   return true;

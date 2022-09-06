@@ -21,36 +21,38 @@ Copyright_License {
 }
 */
 
-#include "UISettings.hpp"
+#include "NavigatorLook.hpp"
+#include "Screen/Layout.hpp"
+#include "ui/canvas/Color.hpp"
+#include "ui/canvas/Pen.hpp"
 
 void
-UISettings::SetDefaults()
+NavigatorLook::Initialise(bool _inverse, const Font &_font)
 {
-  display.SetDefaults();
+  font = &_font;
 
-  menu_timeout = std::chrono::seconds{8 * 4};
+  Color pen_frame_color, brush_frame_color;
 
-  scale = 100;
+  if(!_inverse) {
+    pen_frame_color = frame_color;
+    brush_frame_color = background_color;
+  }
+  else {
+    pen_frame_color = frame_color_inv;
+    brush_frame_color = background_color_inv;
+  }
 
-  custom_dpi = 0;  // automatic
+  frame_brush.Create(pen_frame_color);
+  frame_pen.Create(Layout::ScalePenWidth(1), pen_frame_color);
+  
+  background_brush.Create(brush_frame_color);
+  background_pen.Create(Layout::ScalePenWidth(1), brush_frame_color);
 
-  thermal_assistant_position = ThermalAssistantPosition::BOTTOM_LEFT;
+  aircraft_pen.Create(Layout::Scale(2), COLOR_BLACK);
 
-  enable_airspace_warning_dialog = true;
+  sky_brush.Create(sky_color);
+  sky_pen.Create(Layout::Scale(1), DarkColor(sky_color));
 
-  popup_message_position = PopupMessagePosition::CENTER;
-
-  haptic_feedback = HapticFeedback::DEFAULT;
-
-  show_menu_button = true;
-
-  format.SetDefaults();
-  map.SetDefaults();
-  info_boxes.SetDefaults();
-  vario.SetDefaults();
-  traffic.SetDefaults();
-  navigator.SetDefaults();
-  pages.SetDefaults();
-  dialog.SetDefaults();
-  sound.SetDefaults();
+  terrain_brush.Create(terrain_color);
+  terrain_pen.Create(Layout::Scale(1), COLOR_GRAY);
 }

@@ -48,10 +48,12 @@ public:
       }
 
       PageActions::RestoreBottom();
+      PageActions::RestoreTop();
     });
 
     AddButton(_("Dismiss"), [](){
       PageActions::RestoreBottom();
+      PageActions::RestoreTop();
     });
   }
 
@@ -73,8 +75,10 @@ TaskAdvanceMonitor::Check()
       PageActions::SetCustomBottom(widget);
     }
   } else {
-    if (widget != nullptr)
+    if (widget != nullptr) {
       PageActions::RestoreBottom();
+      PageActions::RestoreTop();
+    }
   }
 
   last_active_index = stats.active_index;

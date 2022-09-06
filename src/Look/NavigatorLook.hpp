@@ -2,7 +2,7 @@
 Copyright_License {
 
   XCSoar Glide Computer - http://www.xcsoar.org/
-  Copyright (C) 2000-2021 The XCSoar Project
+  Copyright (C) 2000-2022 The XCSoar Project
   A detailed list of copyright holders can be found in the file "AUTHORS".
 
   This program is free software; you can redistribute it and/or
@@ -21,36 +21,39 @@ Copyright_License {
 }
 */
 
-#include "UISettings.hpp"
+#pragma once
 
-void
-UISettings::SetDefaults()
-{
-  display.SetDefaults();
+#include "ui/canvas/Color.hpp"
+#include "ui/canvas/Pen.hpp"
+#include "ui/canvas/Brush.hpp"
 
-  menu_timeout = std::chrono::seconds{8 * 4};
+class Font;
 
-  scale = 100;
+struct NavigatorLook {
+  bool inverse;
 
-  custom_dpi = 0;  // automatic
+  const Font *font;
 
-  thermal_assistant_position = ThermalAssistantPosition::BOTTOM_LEFT;
+  static constexpr Color background_color{COLOR_WHITE};
+  static constexpr Color background_color_inv{COLOR_BLACK};
+  static constexpr Color frame_color{COLOR_BLACK};
+  static constexpr Color frame_color_inv{COLOR_WHITE};
+  
+  Pen frame_pen;
+  Brush frame_brush;
 
-  enable_airspace_warning_dialog = true;
+  Pen background_pen;
+  Brush background_brush;
 
-  popup_message_position = PopupMessagePosition::CENTER;
+  Pen aircraft_pen;
 
-  haptic_feedback = HapticFeedback::DEFAULT;
+  static constexpr Color sky_color{0x0a, 0xb9, 0xf3};
+  Brush sky_brush;
+  Pen sky_pen;
 
-  show_menu_button = true;
+  static constexpr Color terrain_color{0x80, 0x45, 0x15};
+  Brush terrain_brush;
+  Pen terrain_pen;
 
-  format.SetDefaults();
-  map.SetDefaults();
-  info_boxes.SetDefaults();
-  vario.SetDefaults();
-  traffic.SetDefaults();
-  navigator.SetDefaults();
-  pages.SetDefaults();
-  dialog.SetDefaults();
-  sound.SetDefaults();
-}
+  void Initialise(bool _inverse, const Font &_font);
+};

@@ -90,6 +90,8 @@ doc/html/advanced/input/ALL		http://xcsoar.sourceforge.net/advanced/input/
 #include "contest/weglide/UploadIGCFile.hpp"
 
 #include <cassert>
+#include <map>
+#include <string_view>
 #include <tchar.h>
 #include <algorithm>
 
@@ -343,15 +345,39 @@ InputEvents::eventStatus(const TCHAR *misc)
 //  See the analysis dialog section of the reference manual
 // for more info.
 void
-InputEvents::eventAnalysis([[maybe_unused]] const TCHAR *misc)
-{
-  dlgAnalysisShowModal(*CommonInterface::main_window,
-                       CommonInterface::main_window->GetLook(),
-                       CommonInterface::Full(),
-                       *glide_computer,
-                       &airspace_database,
-                       terrain);
-}
+InputEvents::eventAnalysis(const TCHAR *misc) {
+
+  const std::map<std::string_view, AnalysisPage> stringToAnalysisPageEnum{
+    {"AnalysisPage::BAROGRAPH", AnalysisPage::BAROGRAPH},
+    {"AnalysisPage::COUNT", AnalysisPage::COUNT},
+    {"AnalysisPage::CLIMB", AnalysisPage::CLIMB},
+    {"AnalysisPage::VARIO_HISTOGRAM", AnalysisPage::VARIO_HISTOGRAM},
+    {"AnalysisPage::THERMAL_BAND", AnalysisPage::THERMAL_BAND},
+    {"AnalysisPage::WIND", AnalysisPage::WIND},
+    {"AnalysisPage::POLAR", AnalysisPage::POLAR},
+    {"AnalysisPage::THERMAL_BAND", AnalysisPage::THERMAL_BAND},
+    {"AnalysisPage::MACCREADY", AnalysisPage::MACCREADY},
+    {"AnalysisPage::TEMPTRACE", AnalysisPage::TEMPTRACE},
+    {"AnalysisPage::TASK", AnalysisPage::TASK},
+    {"AnalysisPage::CONTEST", AnalysisPage::CONTEST},
+    {"AnalysisPage::TASK_SPEED", AnalysisPage::TASK_SPEED},
+    {"AnalysisPage::AIRSPACE", AnalysisPage::AIRSPACE}};
+
+  AnalysisPage APage;
+  if (stringToAnalysisPageEnum.contains(misc))
+    APage = stringToAnalysisPageEnum.at(misc);
+  else
+    APage = stringToAnalysisPageEnum.at("AnalysisPage::CONTEST");
+
+  dlgAnalysisShowModal(
+    *CommonInterface::main_window, 
+    CommonInterface::main_window->GetLook(),
+    CommonInterface::Full(), 
+    *glide_computer, 
+    &airspace_database, 
+    terrain,
+    APage);
+    }
 
 // WaypointDetails
 // Displays waypoint details

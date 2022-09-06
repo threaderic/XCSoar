@@ -232,6 +232,8 @@ extern const char FlarmSideData[];
 extern const char FlarmAutoZoom[];
 extern const char FlarmNorthUp[];
 
+extern const char NavigatorHeight[];
+
 extern const char IgnoreNMEAChecksum[];
 extern const char MapOrientation[];
 

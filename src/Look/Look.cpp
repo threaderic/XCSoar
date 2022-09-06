@@ -43,6 +43,7 @@ Look::InitialiseConfigured(const UISettings &settings,
   dialog.Initialise();
   terminal.Initialise();
   cross_section.Initialise(map_font);
+  navigator.Initialise(settings.info_boxes.inverse, map_font);
   horizon.Initialise();
   thermal_band.Initialise(settings.info_boxes.inverse,
                           cross_section.sky_color);
