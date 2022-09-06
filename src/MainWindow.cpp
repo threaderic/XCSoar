@@ -744,6 +744,14 @@ MainWindow::OnPaint(Canvas &canvas) noexcept
     canvas.DrawFilledRectangle(rc, COLOR_BLACK);
   }
 
+  if (HaveTopWidget() && map != nullptr) {
+    /* draw a separator between main area and top area */
+    PixelRect rc = map->GetPosition();
+    rc.bottom = rc.top;
+    rc.top -= separator_height;
+    canvas.DrawFilledRectangle(rc, COLOR_BLACK);
+  }
+
   SingleWindow::OnPaint(canvas);
 }
 
@@ -833,6 +841,12 @@ MainWindow::ActivateMap() noexcept
                                               bottom_widget));
     }
 
+    if (top_widget != nullptr) {
+      assert(HaveTopWidget());
+      top_widget->Show(GetTopWidgetRect(GetMainRect(),
+                                              top_widget));
+    }
+
 #ifndef ENABLE_OPENGL
     if (draw_suspended) {
       draw_suspended = false;
@@ -875,7 +889,11 @@ MainWindow::KillTopWidget() noexcept
   if (top_widget == nullptr)
     return;
 
-  top_widget->Hide();
+  if (widget == nullptr)
+    /* the top widget is only visible above the map, but not above
+       a custom main widget; see HaveTopWidget() */
+    top_widget->Hide();
+
   top_widget->Unprepare();
   delete top_widget;
   top_widget = nullptr;
@@ -887,28 +905,37 @@ MainWindow::SetTopWidget(Widget *_widget) noexcept
   if (top_widget == nullptr && _widget == nullptr)
     return;
 
+  if (map == nullptr) {
+    /* this doesn't work without a map */
+    delete _widget;
+    return;
+  }
+
   KillTopWidget();
 
   top_widget = _widget;
 
   PixelRect main_rect = GetMainRect();
-  const PixelRect top_rect = GetTopWidgetRect(main_rect,
-                                              top_widget);
-  if (top_widget != nullptr) {
-    top_widget->Initialise(*this, top_rect);
-    top_widget->Prepare(*this, top_rect);
-    top_widget->Show(top_rect);
-  }
-
-  main_rect = GetMapRectBelow(main_rect, top_rect);
-
   const PixelRect bottom_rect = GetBottomWidgetRect(main_rect,
                                                     bottom_widget);
-
+  main_rect = GetMapRectAbove(main_rect, bottom_rect);
   if (HaveBottomWidget())
     bottom_widget->Move(bottom_rect);
 
-  map->Move(GetMapRectAbove(main_rect, bottom_rect));
+  const PixelRect top_rect = GetTopWidgetRect(main_rect,
+                                              top_widget);
+
+  if (top_widget != nullptr) {
+    top_widget->Initialise(*this, top_rect);
+    top_widget->Prepare(*this, top_rect);
+
+    if (widget == nullptr)
+      /* the top widget is only visible above the map, but not
+         above a custom main widget; see HaveBottomWidget() */
+      top_widget->Show(top_rect);
+  }
+ 
+  map->Move(GetMapRectBelow(main_rect, top_rect));
   map->FullRedraw();
 }
 
@@ -976,6 +1003,7 @@ MainWindow::SetWidget(Widget *_widget) noexcept
   restore_page_pending = false;
 
   const bool have_bottom_widget = HaveBottomWidget();
+  const bool have_top_widget = HaveTopWidget();
 
   /* delete the old widget */
   KillWidget();
@@ -994,6 +1022,8 @@ MainWindow::SetWidget(Widget *_widget) noexcept
 
   if (have_bottom_widget)
     bottom_widget->Hide();
+  if (have_top_widget)
+    top_widget->Hide();
 
   widget = _widget;
 

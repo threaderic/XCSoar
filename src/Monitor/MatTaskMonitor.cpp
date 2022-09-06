@@ -58,9 +58,12 @@ public:
     AddButton(_("Add"), [this](){
       OnAdd();
       PageActions::RestoreBottom();
+      PageActions::RestoreTop();
     });
     AddButton(_("Dismiss"), [](){
       PageActions::RestoreBottom();
+      PageActions::RestoreTop();
+
     });
   }
 
@@ -191,8 +194,10 @@ MatTaskMonitor::Check()
     last_id = id;
   } else {
     /* no nearby turn point: close the QuestionWidget */
-    if (widget != nullptr)
+    if (widget != nullptr) {
       PageActions::RestoreBottom();
+      PageActions::RestoreTop();
+    }
 
     last_id = unsigned(-1);
   }
