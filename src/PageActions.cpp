@@ -22,6 +22,7 @@ Copyright_License {
 */
 
 #include "PageActions.hpp"
+#include "Gauge/NavigatorWidget.hpp"
 #include "UIActions.hpp"
 #include "UIState.hpp"
 #include "Interface.hpp"
@@ -245,7 +246,7 @@ LoadBottom(PageLayout::Bottom bottom)
 static void
 LoadTop(PageLayout::Top top)
 {
-  const DialogLook &look = UIGlobals::GetDialogLook();
+  // const DialogLook &look = UIGlobals::GetDialogLook();
                       
   switch (top) {
   case PageLayout::Top::NOTHING:
@@ -253,11 +254,12 @@ LoadTop(PageLayout::Top top)
     break;
 
   case PageLayout::Top::NAVIGATOR:
-    CommonInterface::main_window->SetTopWidget(new ButtonWidget(look.button, _("Show Menu"), []()
-                                                                                              {ShowFileManager();
-                                                                                              InputEvents::ShowMenu();
-                                                                                              }));
+    // CommonInterface::main_window->SetTopWidget(new ButtonWidget(look.button, _("Show Menu"), []()
+    //                                                                                           {ShowFileManager();
+    //                                                                                           InputEvents::ShowMenu();
+    //                                                                                           }));
     // CommonInterface::main_window->SetTopWidget(new ButtonWidget(look.button, _("Show Menu"), [](){InputEvents::ShowMenu();}));
+    CommonInterface::main_window->SetTopWidget(new NavigatorWidget());
 
     break;
 

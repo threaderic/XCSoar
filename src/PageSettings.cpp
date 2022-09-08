@@ -95,6 +95,19 @@ PageLayout::MakeTitle(const InfoBoxSettings &info_box_settings,
   case Bottom::MAX:
     gcc_unreachable();
   }
+
+  switch (top) {
+  case Top::NOTHING:
+  case Top::CUSTOM:
+    break;
+
+  case Top::NAVIGATOR:
+    _tcscat(buffer, _T(", NAV"));
+    break;
+
+  case Top::MAX:
+    gcc_unreachable();
+  }
 }
 
 void
