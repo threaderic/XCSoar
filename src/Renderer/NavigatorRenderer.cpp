@@ -25,112 +25,296 @@ Copyright_License {
 #include "Formatter/Units.hpp"
 #include "Interface.hpp"
 #include "Language/Language.hpp"
+#include "Look/Look.hpp"
 #include "Renderer/TextRenderer.hpp"
+#include "Task/TaskBehaviour.hpp"
 #include "Units/System.hpp"
-#include "ui/canvas/Color.hpp"
-#include "util/StaticString.hxx"
+#include "Waypoint/Waypoint.hpp"
+#include "WaypointIconRenderer.hpp"
+#include "WaypointRenderer.hpp"
+#include "time/RoughTime.hpp"
 #include "ui/canvas/Canvas.hpp"
 #include "Screen/Layout.hpp"
+#include "UIGlobals.hpp"
+#include "Look/TaskLook.hpp"
+#include "Look/WaypointLook.hpp"
 #include "Look/NavigatorLook.hpp"
-#include "NMEA/Attitude.hpp"
+#include "Look/IconLook.hpp"
+#include "Look/MapLook.hpp"
+#include "Look/TaskLook.hpp"
 #include "Math/Constants.hpp"
-#include "Math/Util.hpp"
-#include "util/Clamp.hpp"
+#include "ProgressBarRenderer.hpp"
+#include "Task/ProtectedTaskManager.hpp"
+#include "Engine/Task/TaskManager.hpp"
+#include "Engine/Task/Ordered/OrderedTask.hpp"
+#include "Engine/Task/Ordered/Points/OrderedTaskPoint.hpp"
+#include "Components.hpp"
+#include "Engine/Task/Unordered/AlternateList.hpp"
+#include "Formatter/LocalTimeFormatter.hpp"
+#include "Formatter/TimeFormatter.hpp"
 
-#include <algorithm>
-#include <string_view>
+
+// standard
+#include <iostream>
+#include <string>
+
 
 void
-NavigatorRenderer::Draw(Canvas &canvas, const PixelRect &rc,
-                      const NavigatorLook &look,
-                      const AttitudeState &attitude)
-{
-  /*
-  This feature of having a backup artificial horizon based on inferred
-  orientation from GPS and vario data is useful, and reasonably well
-  tested, but has the issue of potentially invalidating use of XCSoar in
-  FAI contests due to rule ref Annex A to Section 3 (2010 Edition) 4.1.2
-  "No instruments permitting pilots to fly without visual reference to
-  the ground may be carried on board, even if made unserviceable."  The
-  quality of XCSoar's pseudo-AH is arguably good enough that this
-  violates the rule.  We need to seek clarification as to whether this
-  is the case or not.
-  */
+NavigatorRenderer::DrawFrame(Canvas &canvas, const PixelRect &rc, const NavigatorLook &look) {
+  const auto top_left = rc.GetTopLeft();
+  const int rc_height = rc.GetHeight();
+  const int rc_width = rc.GetWidth();
   
+  BulkPixelPoint polyline_frame[11];
+  polyline_frame[0].x = top_left.x + 5 / 20.0 * rc_height; //
+  polyline_frame[0].y = top_left.y; //
+  polyline_frame[1].x = top_left.x + rc_width - 4 / 20.0 * rc_height; //
+  polyline_frame[1].y = polyline_frame[0].y; //
+  polyline_frame[2].x = top_left.x + rc_width - 2 / 20.0 * rc_height; //
+  polyline_frame[2].y = top_left.y + 1 / 20.0 *rc_height;; //
+  polyline_frame[3].x = top_left.x + rc_width; //
+  polyline_frame[3].y = top_left.y + 10 / 20.0 * rc_height; //
+  polyline_frame[4].x = polyline_frame[2].x; //
+  polyline_frame[4].y = top_left.y + 19 / 20.0 *rc_height; //
+  polyline_frame[5].x = polyline_frame[1].x; //
+  polyline_frame[5].y = top_left.y + rc_height; //
+  polyline_frame[6].x = polyline_frame[0].x; //
+  polyline_frame[6].y = polyline_frame[5].y; //
+  polyline_frame[7].x = top_left.x + 2 / 20.0 * rc_height ; //
+  polyline_frame[7].y = polyline_frame[4].y; //
+  polyline_frame[8].x = top_left.x; //
+  polyline_frame[8].y = polyline_frame[3].y;//
+  polyline_frame[9].x = polyline_frame[7].x; //
+  polyline_frame[9].y = polyline_frame[2].y; //
+  polyline_frame[10].x = polyline_frame[0].x; //
+  polyline_frame[10].y = polyline_frame[0].y; //
+  
+  canvas.Select(look.background_pen);
+  canvas.Select(look.background_brush);
+  canvas.DrawPolygon( polyline_frame, 11);
 
-  const auto center = rc.GetCenter();
+  canvas.Select(look.frame_pen);
+  canvas.Select(look.frame_brush);
+  canvas.DrawPolyline( polyline_frame, 11);
+}
 
-  const int radius = std::min(rc.GetWidth(), rc.GetHeight()) / 3;
-    // - Layout::Scale(1);
 
-  auto bank_degrees = attitude.bank_angle_available
-    ? 12.0
-    : 12.0;
+void 
+NavigatorRenderer::DrawText(Canvas &canvas, const Waypoint &wp_current, 
+                                const PixelRect &rc, const NavigatorLook &look) {
 
-  auto pitch_degrees = attitude.pitch_angle_available
-    ? 12.0
-    : 12.0;
-    // : 0.;
+  const auto &basic = CommonInterface::Basic();
+  const auto &calculated = CommonInterface::Calculated();
+  TCHAR current_speed[256] = "---";
 
-  auto phi = Clamp(bank_degrees, -89., 89.);
-  auto alpha = Angle::acos(Clamp(pitch_degrees / 50,
-                                 -1., 1.));
-  auto sphi = Angle::HalfCircle() - Angle::Degrees(phi);
-  auto alpha1 = sphi - alpha;
-  auto alpha2 = sphi + alpha;
+  if (basic.ground_speed_available)
+    FormatSpeed(current_speed, Units::ToSysUnit(basic.ground_speed, Unit::METER_PER_SECOND),
+              Unit::KILOMETER_PER_HOUR, true, true);
+  
+  auto current_speed_s = static_cast<std::string>(current_speed);
+    
+  TextRenderer text_renderer;
+  text_renderer.SetVCenter(true);
+  text_renderer.SetControl(true);
+  
+  canvas.Select(*look.font);
 
-  // draw sky part
-  canvas.Select(look.sky_pen);
-  canvas.Select(look.sky_brush);
-  canvas.DrawSegment(center, radius, alpha2, alpha1, true);
+  bool has_started = calculated.ordered_task_stats.start.task_started;
 
-  // draw ground part
-  canvas.Select(look.terrain_pen);
-  canvas.Select(look.terrain_brush);
-  canvas.DrawSegment(center, radius, alpha1, alpha2, true);
+  auto time_elapsed = TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_elapsed}};
+  RoughTimeDelta r;
+  auto time_elapsed_s = FormatLocalTimeHHMM(time_elapsed, r).c_str();
+  has_started ? time_elapsed_s : time_elapsed_s = "---";
 
-  // draw aircraft symbol
-  canvas.Select(look.aircraft_pen);
-  canvas.DrawLine({center.x + radius / 2, center.y}, {center.x - radius / 2, center.y});
-  canvas.DrawLine({center.x, center.y - radius / 4}, {center.x, center.y});
+  auto time_start = calculated.ordered_task_stats.start.time;
+  auto time_start_s = FormatLocalTimeHHMM(time_start,
+                                  CommonInterface::GetComputerSettings().utc_offset).c_str();
+  has_started ? time_start_s : time_start_s = "---";
 
-  // draw 45 degree dash marks
-  const int rr2p = uround(radius * M_SQRT1_2) + Layout::Scale(1);
-  const int rr2n = rr2p - Layout::Scale(2);
-  canvas.DrawLine({center.x + rr2p, center.y - rr2p},
-                  {center.x + rr2n, center.y - rr2n});
-  canvas.DrawLine({center.x - rr2p, center.y - rr2p},
-                  {center.x - rr2n, center.y - rr2n});
+  auto time_local = FormatLocalTimeHHMM(basic.time,
+                                  CommonInterface::GetComputerSettings().utc_offset).c_str();
+  auto waypoint_s = static_cast<std::string>(wp_current.name);
+
+  auto time_planned = TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_planned}};
+  auto time_planned_s = FormatLocalTimeHHMM(time_planned, r).c_str();
+  has_started ? time_planned_s : time_planned_s = "---";
+
+  auto arrival_planned = TimeStamp{FloatDuration{time_start.ToDuration() + time_planned.ToDuration()}};
+  auto arrival_planned_s = FormatLocalTimeHHMM(arrival_planned, 
+                                  CommonInterface::GetComputerSettings().utc_offset).c_str(); 
+  has_started ? arrival_planned_s : arrival_planned_s = "---";
+
+  auto caption = _T("--- Navigator not available: ongoing // current speed: ") \
+            + current_speed_s \
+            + " ---\n\t\t\t\t                                      " \
+            + waypoint_s \
+            +_T("\n\t\t\t\t\t") \
+            + time_start_s \
+            +_T("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t      ") \
+            + time_local \
+            +_T(" (") \
+            + time_elapsed_s \
+            +_T(")\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t     ") \
+            + arrival_planned_s \
+            +_T(" (") \
+            + time_planned_s\
+            + _T(")");
+          
+  canvas.SetBackgroundTransparent();
+  canvas.SetTextColor(COLOR_RED);
+  text_renderer.Draw(canvas, rc, caption);
 }
 
 void 
-NavigatorRenderer::DrawText(Canvas &canvas, const PixelRect &rc,
-            const NavigatorLook &look)
+NavigatorRenderer::DrawProgressTask(const TaskSummary& summary, Canvas &canvas, 
+                                    const PixelRect &rc, const NavigatorLook &look, const TaskLook &look_task, bool inverse) 
 {
-  /*
-  Draw some text
-  */
+  const int rc_height = rc.GetHeight();
+  const int rc_width = rc.GetWidth();
 
-  const auto &basic = CommonInterface::Basic();
-  TCHAR buffer[256];
-  std::string current_speed; 
+  // render the progress bar
+  PixelRect r{static_cast<int>(5 / 24.0 * rc_height),
+                rc_height-static_cast<int>(2.5 / 24.0 * rc_height),
+                rc_width-static_cast<int>(5 / 24.0 * rc_height), 
+                rc_height-static_cast<int>(0.5/ 24.0 * rc_height)};
+  
+  bool task_has_started = CommonInterface::Calculated().task_stats.start.task_started;
+  bool task_is_finished = CommonInterface::Calculated().task_stats.task_finished;
 
-  if (basic.ground_speed_available)
-    FormatSpeed(buffer, Units::ToSysUnit(basic.ground_speed, Unit::METER_PER_SECOND),
-              Unit::KILOMETER_PER_HOUR, true, true);
-    // current_speed = std::to_string(basic.ground_speed);
+  unsigned int progression{};
+
+  if(task_has_started && !task_is_finished)
+    progression = 100*(1 - summary.p_remaining);
+  else if(task_has_started && task_is_finished)
+    progression = 100;
+  else
+   progression = 0;
+
+
+  DrawSimpleProgressBar(canvas, r, progression, 0, 100);
+
+  canvas.Select(look.frame_brush);
+
+  // render the waypoints on the progress bar
+  const Pen pen_f(Layout::ScalePenWidth(1), inverse ? COLOR_WHITE : COLOR_BLACK);
+  const Pen pen_fi(Layout::ScalePenWidth(1), inverse ? COLOR_BLACK : COLOR_WHITE);
+  canvas.Select(pen_f);
+
+  bool target{true};
+  unsigned i = 0;
+  for (auto it = summary.pts.begin(); it != summary.pts.end(); ++it, ++i) {
+    auto p = it->p;
+
+    const PixelPoint position_waypoint(p * (rc_width - 10 / 24.0 * rc_height) + 5 / 24.0 * rc_height,
+                        rc_height - static_cast<int>(1.5 / 24.0 * rc_height));
+
+    int w = Layout::Scale(2);
+
+    /* search for the next Waypoint to reach and draw two horizontal lines left and right
+     * if one Waypoint has been missed, the two lines are also drawn */
+    if (!it->achieved && target) {
+      canvas.Select(pen_f);
+      canvas.DrawLine(position_waypoint.At(-w, 0.5*w), 
+                      position_waypoint.At(-2*w, 0.5*w));
+      canvas.DrawLine(position_waypoint.At(w, 0.5*w), 
+                      position_waypoint.At(2*w, 0.5*w));
+
+      canvas.DrawLine(position_waypoint.At(-w, -0.5*w), 
+                      position_waypoint.At(-2*w, -0.5*w));
+      canvas.DrawLine(position_waypoint.At(w, -0.5*w), 
+                      position_waypoint.At(2*w, -0.5*w));
+
+      target = false;
+    }
+
+    if (i == summary.active) {
+      // search for the Waypoint on which the user is looking for and draw two vertical lines left and right
+      canvas.Select(pen_fi);
+      canvas.DrawLine(position_waypoint.At(-1*w, w), 
+                      position_waypoint.At(-1*w, -w));
+      canvas.DrawLine(position_waypoint.At(1*w, w), 
+                      position_waypoint.At(1*w, -w));
+  
+      canvas.Select(pen_f);
+      canvas.DrawLine(position_waypoint.At(-2*w, w), 
+                      position_waypoint.At(-2*w, -w));
+      canvas.DrawLine(position_waypoint.At(2*w, w), 
+                      position_waypoint.At(2*w, -w));
+
+      if (it->achieved)
+        canvas.Select(look_task.hbGreen);
+      else
+        canvas.Select(look_task.hbOrange);
+      w = Layout::Scale(2);
+
+    } else if (i < summary.active) {
+      if (it->achieved)
+        canvas.Select(look_task.hbGreen);
+      else
+        canvas.Select(look_task.hbNotReachableTerrain);
+      w = Layout::Scale(2);
+
+    } else {
+      if (it->achieved)
+        canvas.Select(look_task.hbGreen);
+      else
+        canvas.Select(look_task.hbLightGray);
+
+      w = Layout::Scale(1);
+    }
+
+    canvas.DrawRectangle(PixelRect{position_waypoint}.WithMargin(w));
+
+    }
+  }
+
+  void 
+  NavigatorRenderer::DrawWaypointsIconsTitle(Canvas &canvas, const NavigatorLook &look) {
     
-  TextRenderer text_renderer;
+    const int rc_height = canvas.GetHeight();
+    const int rc_width = canvas.GetWidth();
 
+    const WaypointRendererSettings &waypoint_settings = CommonInterface::GetMapSettings().waypoint;
+    const WaypointLook &waypoint_look = UIGlobals::GetMapLook().waypoint;
+    
+    WaypointIconRenderer waypoint_icon_renderer{waypoint_settings, waypoint_look, canvas};
+    const PixelPoint position_waypoint_left{rc_width/20, rc_height*1/2};
+    const PixelPoint position_waypoint_centered{rc_width/4, rc_height*1/2};
+    const PixelPoint position_waypoint_right{rc_width*18/20, rc_height*1/2};
+    
+    WaypointPtr waypoint_before;
+    WaypointPtr waypoint_current;
 
-  canvas.Select(*look.font);
-  StaticString<128> caption;
-  caption = "  --- Navigator not yet available ---\n        --- IN PROGRESS ---\n Current Speed: " \
-            + static_cast<std::string>(buffer);
+    unsigned task_size{};
+    unsigned i{};
+    
+    if(protected_task_manager != nullptr) {
+      ProtectedTaskManager::Lease lease(*protected_task_manager);
 
-  canvas.SetTextColor(COLOR_GRAY);
+      const OrderedTask &task = lease->GetOrderedTask();
 
-  text_renderer.SetControl();
-  text_renderer.Draw(canvas, rc, caption);
+      task_size = task.TaskSize();
+      waypoint_current = task.GetActiveTaskPoint()->GetWaypointPtr();
+      i = task.GetActiveIndex();
+      
+      if(i == 0 || i == 1)
+        waypoint_before = task.GetPoint(0).GetWaypointPtr();
+      else
+        waypoint_before = task.GetPoint(i-1).GetWaypointPtr();
 
-}
+      // std::cout << "\nhas started? " << task.TaskStarted() << "\nhas finished? " << task.GetStats().task_finished << std::endl;
+    }
+    
+    // std::cout << "ainddex" << i << "yepyep " << waypoint_current->name << "  rtrtr :" << waypoint_current->elevation << std::endl;
+    // std::cout << "cqscn " << waypoint_before->name << "  rtrtr :" << waypoint_before->elevation << std::endl;
+    WaypointReachability wr = WaypointReachability::UNREACHABLE;
+
+    if(protected_task_manager != nullptr && task_size > 3) {
+      waypoint_icon_renderer.Draw(*waypoint_before, position_waypoint_left, wr , true);
+      waypoint_icon_renderer.Draw(*waypoint_current, position_waypoint_centered, wr , true);
+      waypoint_icon_renderer.Draw(*waypoint_current, position_waypoint_right, wr , true);
+    }
+
+    DrawText(canvas, *waypoint_current, canvas.GetRect(), look);
+
+  }

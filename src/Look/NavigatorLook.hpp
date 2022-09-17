@@ -23,13 +23,27 @@ Copyright_License {
 
 #pragma once
 
+#include "ui/canvas/Color.hpp"
 #include "ui/canvas/Pen.hpp"
 #include "ui/canvas/Brush.hpp"
 
 class Font;
 
 struct NavigatorLook {
+  bool inverse;
+
   const Font *font;
+
+  static constexpr Color background_color{COLOR_WHITE};
+  static constexpr Color background_color_inv{COLOR_BLACK};
+  static constexpr Color frame_color{COLOR_BLACK};
+  static constexpr Color frame_color_inv{COLOR_WHITE};
+  
+  Pen frame_pen;
+  Brush frame_brush;
+
+  Pen background_pen;
+  Brush background_brush;
 
   Pen aircraft_pen;
 
@@ -41,5 +55,5 @@ struct NavigatorLook {
   Brush terrain_brush;
   Pen terrain_pen;
 
-  void Initialise(const Font &_font);
+  void Initialise(bool _inverse, const Font &_font);
 };

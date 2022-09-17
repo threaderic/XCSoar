@@ -91,7 +91,7 @@ GetTopWidgetRect(const PixelRect &rc, const Widget *top_widget) noexcept
     const unsigned max_height = rc.GetHeight() / 3;
     height = std::min(max_height, requested_height);
   } else {
-    const unsigned recommended_height = rc.GetHeight() / 5;
+    const unsigned recommended_height = rc.GetHeight() / 7;
     height = recommended_height;
   }
 
@@ -736,6 +736,23 @@ MainWindow::OnClose() noexcept
 void
 MainWindow::OnPaint(Canvas &canvas) noexcept
 {
+  
+  // const Look &look = UIGlobals::GetLook();
+
+  // bool inversed = look->info_box.inverse;
+  bool inversed{false};
+  Color color_separator_top;
+
+  if(look != nullptr)
+    inversed = look->info_box.inverse;
+
+  if (!inversed){
+    color_separator_top = COLOR_BLACK;
+  }
+  else {
+    color_separator_top = COLOR_WHITE;
+  }
+
   if (HaveBottomWidget() && map != nullptr) {
     /* draw a separator between main area and bottom area */
     PixelRect rc = map->GetPosition();
@@ -749,7 +766,7 @@ MainWindow::OnPaint(Canvas &canvas) noexcept
     PixelRect rc = map->GetPosition();
     rc.bottom = rc.top;
     rc.top -= separator_height;
-    canvas.DrawFilledRectangle(rc, COLOR_BLACK);
+    canvas.DrawFilledRectangle(rc, color_separator_top);
   }
 
   SingleWindow::OnPaint(canvas);
@@ -835,18 +852,24 @@ MainWindow::ActivateMap() noexcept
     map->Show();
     map->SetFocus();
 
-    if (bottom_widget != nullptr) {
-      assert(HaveBottomWidget());
-      bottom_widget->Show(GetBottomWidgetRect(GetMainRect(),
-                                              bottom_widget));
-    }
+  PixelRect main_rect = GetMainRect();
+  const PixelRect bottom_rect = GetBottomWidgetRect(main_rect,
+                                                    bottom_widget);
+  main_rect = GetMapRectAbove(main_rect, bottom_rect);
+  if (HaveBottomWidget()) {
+    bottom_widget->Show(bottom_rect);
+    bottom_widget->Move(bottom_rect);
+  }
 
-    if (top_widget != nullptr) {
-      assert(HaveTopWidget());
-      top_widget->Show(GetTopWidgetRect(GetMainRect(),
-                                              top_widget));
-    }
+  const PixelRect top_rect = GetTopWidgetRect(main_rect,
+                                              top_widget);
 
+  if (HaveTopWidget()){
+    top_widget->Show(top_rect);
+    top_widget->Move(top_rect);
+  }
+
+  map->Move(GetMapRectBelow(main_rect, top_rect));
 #ifndef ENABLE_OPENGL
     if (draw_suspended) {
       draw_suspended = false;

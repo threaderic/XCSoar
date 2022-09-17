@@ -23,33 +23,45 @@ Copyright_License {
 
 #pragma once
 
-#include "Look/WaypointLook.hpp"
-#include "Renderer/TextRenderer.hpp"
-#include "Renderer/WaypointReachability.hpp"
-#include "Renderer/WaypointRendererSettings.hpp"
-#include "ui/dim/Point.hpp"
-#include "Waypoint/Waypoint.hpp"
-#include "util/StaticString.hxx"
+
+#include "Engine/Waypoint/Ptr.hpp"
 
 struct PixelRect;
+struct PixelPoint;
 struct NavigatorLook;
 struct AttitudeState;
 class Canvas;
 class TextRenderer;
 class WaypointIconRenderer;
+struct TaskLook;
+struct TaskSummary;
+
 
 namespace NavigatorRenderer
 {
-
-  void Draw(Canvas &canvas, const PixelRect &rc,
-            const NavigatorLook &look,
-            const AttitudeState &attitude);
-
-  void DrawText(Canvas &canvas, const PixelRect &rc,
+  /**
+  * This function is used to create the frame of the Navigator and
+  * also the frame of the waypoint
+  */
+  void DrawFrame(Canvas &canvas, const PixelRect &rc,
             const NavigatorLook &look);
 
-  // void DrawIcon(const WaypointRendererSettings &_settings,
-  //                      const WaypointLook &_look,
-  //                      Canvas &_canvas, bool _small_icons = false,
-  //                      Angle _screen_rotation = Angle::Zero());
+  /**
+  * Draw information texts about the current task (ordered task) or 
+  * the current target (unordered task) 
+  * e.g. waypoint distance, start time, planned duration time, ...
+  */
+  void DrawText(Canvas &canvas, const Waypoint &wp_current, 
+            const PixelRect &rc, const NavigatorLook &look);
+  
+  /**
+  * Draw the progress of the current task with presntation of each taskpoint
+  */
+  void DrawProgressTask(const TaskSummary& summary, Canvas &canvas, const PixelRect &rc,
+            const NavigatorLook &look, const TaskLook &look_task, bool inverse);
+
+  /**
+  * Draw the icon of the current task and of the previous task
+  */
+  void DrawWaypointsIconsTitle(Canvas &canvas, const NavigatorLook &look);
 }

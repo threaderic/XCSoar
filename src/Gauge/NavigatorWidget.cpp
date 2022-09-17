@@ -28,23 +28,26 @@
 #include "ui/window/AntiFlickerWindow.hpp"
 #include "ui/canvas/Canvas.hpp"
 #include "Renderer/NavigatorRenderer.hpp"
+#include "Screen/Layout.hpp"
+
+#include <iostream>
 
 /**
- * A Window which renders a terrain and airspace cross-section
+ * A Window which renders a Navigator
  */
 class NavigatorWindow : public AntiFlickerWindow {
   const NavigatorLook &look;
+  const TaskLook &look_task;
   const bool& inverse;
 
   AttitudeState attitude;
-
+  
 public:
   /**
    * Constructor. Initializes most class members.
    */
-  NavigatorWindow(const NavigatorLook &_look, const bool &_inverse) noexcept
-    :look(_look),inverse(_inverse)
-  {
+  NavigatorWindow(const NavigatorLook &_look, const TaskLook &_look_task, const bool &_inverse) noexcept
+    :look(_look), look_task(_look_task), inverse(_inverse) {
     attitude.Reset();
   }
 
@@ -62,13 +65,45 @@ protected:
       canvas.ClearWhite();
 
     // if (!attitude.bank_angle_available && !attitude.pitch_angle_available) {
-    //   // TODO: paint "no data" hint
     //   NavigatorRenderer::DrawText(canvas, canvas.GetRect(), look);
     //   return;
     // }
 
-    NavigatorRenderer::DrawText(canvas, canvas.GetRect(), look);  
-    NavigatorRenderer::Draw(canvas, canvas.GetRect(), look, attitude);
+    const auto &basic = CommonInterface::Basic();
+    TimeStamp current_time{};
+    // int time_second{};
+    // unsigned int time_second_mod101{};
+
+    if (basic.time_available)
+      current_time = basic.time;
+    
+    // bool take_off = CommonInterface::Full().Calculated().flight.HasTakenOff();
+    bool task_valid = CommonInterface::Full().Calculated().ordered_task_stats.task_valid;
+
+    // time_second = current_time.ToDuration().count();
+    // time_second_mod101 = time_second%101;
+    // std::cout << "time: " 
+    //           << CommonInterface::Calculated().common_stats.ordered_summary.p_remaining 
+    //           << " mod100: " << time_second_mod101 
+    //           // << " waypoint: " << buffer
+    //           << " taken off: " << take_off
+    //           <<  std::endl;
+
+    const PixelRect frame_navigator = canvas.GetRect().WithPadding(Layout::Scale(1));
+    
+    int fnw_height = canvas.GetHeight();
+    int fnw_width = canvas.GetWidth();
+    PixelRect frame_navigator_waypoint{{static_cast<int>(fnw_width*1.8/10.0),static_cast<int>(fnw_height*3.5/10.0)}, 
+                                                    {static_cast<int>(fnw_width*8/10.0), 
+                                                          static_cast<int>(fnw_height*3/10.0)}};
+ 
+    NavigatorRenderer::DrawFrame(canvas, frame_navigator, look);  
+    NavigatorRenderer::DrawFrame(canvas, frame_navigator_waypoint, look);  
+    NavigatorRenderer::DrawProgressTask(CommonInterface::Calculated().
+                common_stats.ordered_summary, canvas, canvas.GetRect(), look, look_task, false);
+
+    if(task_valid)
+      NavigatorRenderer::DrawWaypointsIconsTitle(canvas, look);  
   }
 };
 
@@ -89,7 +124,7 @@ NavigatorWidget::Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept
   style.Hide();
   style.Disable();
 
-  auto w = std::make_unique<NavigatorWindow>(look.navigator, look.info_box.inverse);
+  auto w = std::make_unique<NavigatorWindow>(look.navigator, look.map.task, look.info_box.inverse);
   w->Create(parent, rc, style);
   SetWindow(std::move(w));
 }
@@ -116,3 +151,84 @@ NavigatorWidget::OnGPSUpdate(const MoreData &basic) noexcept
 {
   Update(basic);
 }
+
+// bool
+// NavigatorWidget::OnMouseMove(PixelPoint p,
+//                                  [[maybe_unused]] unsigned keys) noexcept
+// {
+//   if (dragging)
+//     gestures.Update(p);
+
+//   return true;
+// }
+
+// bool
+// NavigatorWidget::OnMouseDown(PixelPoint p) noexcept
+// {
+//   if (!dragging) {
+//     dragging = true;
+//     SetCapture();
+//     gestures.Start(p, Layout::Scale(20));
+//   }
+
+//   return true;
+// }
+
+// bool
+// NavigatorWidget::OnMouseUp(PixelPoint p) noexcept
+// {
+//   if (dragging) {
+//     StopDragging();
+
+//     const TCHAR *gesture = gestures.Finish();
+//     if (gesture && OnMouseGesture(gesture))
+//       return true;
+//   }
+
+//   if (!WarningMode())
+//     SelectNearTarget(p, Layout::Scale(15));
+
+//   return true;
+// }
+
+// bool
+// NavigatorWidget::OnMouseDouble([[maybe_unused]] PixelPoint p) noexcept
+// {
+//   StopDragging();
+//   InputEvents::ShowMenu();
+//   return true;
+// }
+
+// bool
+// NavigatorWidget::OnMouseGesture(const TCHAR* gesture)
+// {
+//   if (StringIsEqual(gesture, _T("U"))) {
+//     ZoomIn();
+//     return true;
+//   }
+//   if (StringIsEqual(gesture, _T("D"))) {
+//     ZoomOut();
+//     return true;
+//   }
+//   if (StringIsEqual(gesture, _T("UD"))) {
+//     SetAutoZoom(true);
+//     return true;
+//   }
+//   if (StringIsEqual(gesture, _T("DR"))) {
+//     OpenDetails();
+//     return true;
+//   }
+//   if (StringIsEqual(gesture, _T("RL"))) {
+//     SwitchData();
+//     return true;
+//   }
+
+//   return InputEvents::processGesture(gesture);
+// }
+
+// void
+// NavigatorWidget::OnCancelMode() noexcept
+// {
+//   FlarmTrafficWindow::OnCancelMode();
+//   StopDragging();
+// }

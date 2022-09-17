@@ -38,4 +38,5 @@ build/local-config.mk
 
 # VSCodium
 .cache/
+.vscode/
 compile_commands.json

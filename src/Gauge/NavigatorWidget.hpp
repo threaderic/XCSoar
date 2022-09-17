@@ -25,12 +25,20 @@ Copyright_License {
 
 #include "Widget/WindowWidget.hpp"
 #include "Blackboard/BlackboardListener.hpp"
+#include "UIUtil/GestureManager.hpp"
 
 class NavigatorWidget final : public WindowWidget,
                             private NullBlackboardListener {
   void Update(const MoreData &basic) noexcept;
 
+protected:
+  bool enable_auto_zoom = true, dragging = false;
+  unsigned zoom = 2;
+
+  // GestureManager gestures;
+
 public:
+
   /* virtual methods from class Widget */
   void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
   void Show(const PixelRect &rc) noexcept override;
@@ -39,4 +47,16 @@ public:
 private:
   /* virtual methods from class BlackboardListener */
   void OnGPSUpdate(const MoreData &basic) noexcept override;
+
+// protected:
+//   bool OnMouseGesture(const TCHAR* gesture);
+
+//   /* virtual methods from class Window */
+//   void OnCreate() noexcept;
+//   bool OnMouseMove(PixelPoint p, unsigned keys) noexcept;
+//   bool OnMouseDown(PixelPoint p) noexcept;
+//   bool OnMouseUp(PixelPoint p) noexcept;
+//   bool OnMouseDouble(PixelPoint p) noexcept;
+//   bool OnKeyDown(unsigned key_code) noexcept;
+//   void OnCancelMode() noexcept;
 };
