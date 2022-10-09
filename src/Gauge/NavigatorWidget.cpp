@@ -91,11 +91,11 @@ protected:
 
     const PixelRect frame_navigator = canvas.GetRect().WithPadding(Layout::Scale(1));
     
-    int fnw_height = canvas.GetHeight();
-    int fnw_width = canvas.GetWidth();
-    PixelRect frame_navigator_waypoint{{static_cast<int>(fnw_width*1.8/10.0),static_cast<int>(fnw_height*3.5/10.0)}, 
+    const int fnw_height = canvas.GetHeight();
+    const int fnw_width = canvas.GetWidth();
+    const PixelRect frame_navigator_waypoint{{static_cast<int>(fnw_width*1.8/10.0),static_cast<int>(fnw_height*1.0/10.0)}, 
                                                     {static_cast<int>(fnw_width*8/10.0), 
-                                                          static_cast<int>(fnw_height*3/10.0)}};
+                                                          static_cast<int>(fnw_height*6/10.0)}};
  
     NavigatorRenderer::DrawFrame(canvas, frame_navigator, look);  
     NavigatorRenderer::DrawFrame(canvas, frame_navigator_waypoint, look);  

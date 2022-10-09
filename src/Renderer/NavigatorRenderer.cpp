@@ -23,9 +23,13 @@ Copyright_License {
 
 #include "NavigatorRenderer.hpp"
 #include "Formatter/Units.hpp"
+#include "InfoBoxes/InfoBoxLayout.hpp"
 #include "Interface.hpp"
 #include "Language/Language.hpp"
+#include "Look/FontDescription.hpp"
 #include "Look/Look.hpp"
+#include "Math/Angle.hpp"
+#include "NextArrowRenderer.hpp"
 #include "Renderer/TextRenderer.hpp"
 #include "Task/TaskBehaviour.hpp"
 #include "Units/System.hpp"
@@ -52,9 +56,12 @@ Copyright_License {
 #include "Engine/Task/Unordered/AlternateList.hpp"
 #include "Formatter/LocalTimeFormatter.hpp"
 #include "Formatter/TimeFormatter.hpp"
+#include "ui/canvas/Font.hpp"
+#include "ui/dim/Rect.hpp"
 
 
 // standard
+#include <iomanip>
 #include <iostream>
 #include <string>
 
@@ -113,56 +120,107 @@ NavigatorRenderer::DrawText(Canvas &canvas, const Waypoint &wp_current,
   
   auto current_speed_s = static_cast<std::string>(current_speed);
     
-  TextRenderer text_renderer;
-  text_renderer.SetVCenter(true);
-  text_renderer.SetControl(true);
+  TextRenderer text_renderer1;
+  text_renderer1.SetVCenter(true);
+  text_renderer1.SetCenter(false);
+  text_renderer1.SetControl(true);
+
+  TextRenderer text_renderer2;
+  text_renderer2.SetVCenter(true);
+  text_renderer2.SetCenter(true);
+  text_renderer2.SetControl(true);
   
   canvas.Select(*look.font);
 
   bool has_started = calculated.ordered_task_stats.start.task_started;
 
-  auto time_elapsed = TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_elapsed}};
-  RoughTimeDelta r;
-  auto time_elapsed_s = FormatLocalTimeHHMM(time_elapsed, r).c_str();
-  has_started ? time_elapsed_s : time_elapsed_s = "---";
+  const auto time_elapsed = TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_elapsed}};
+  const RoughTimeDelta r{};
 
-  auto time_start = calculated.ordered_task_stats.start.time;
+  auto time_elapsed_s = FormatLocalTimeHHMM(time_elapsed, r).c_str();
+  has_started ? time_elapsed_s : time_elapsed_s = "--:--";
+
+  const auto time_start = calculated.ordered_task_stats.start.time;
   auto time_start_s = FormatLocalTimeHHMM(time_start,
                                   CommonInterface::GetComputerSettings().utc_offset).c_str();
-  has_started ? time_start_s : time_start_s = "---";
+  has_started ? time_start_s : time_start_s = "--:--";
 
-  auto time_local = FormatLocalTimeHHMM(basic.time,
+  const auto time_local = FormatLocalTimeHHMM(basic.time,
                                   CommonInterface::GetComputerSettings().utc_offset).c_str();
-  auto waypoint_s = static_cast<std::string>(wp_current.name);
 
-  auto time_planned = TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_planned}};
+  const auto time_planned = TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_planned}};
   auto time_planned_s = FormatLocalTimeHHMM(time_planned, r).c_str();
-  has_started ? time_planned_s : time_planned_s = "---";
+  has_started ? time_planned_s : time_planned_s = "--:--";
 
-  auto arrival_planned = TimeStamp{FloatDuration{time_start.ToDuration() + time_planned.ToDuration()}};
+  const auto arrival_planned = TimeStamp{FloatDuration{time_start.ToDuration() + time_planned.ToDuration()}};
   auto arrival_planned_s = FormatLocalTimeHHMM(arrival_planned, 
                                   CommonInterface::GetComputerSettings().utc_offset).c_str(); 
-  has_started ? arrival_planned_s : arrival_planned_s = "---";
+  has_started ? arrival_planned_s : arrival_planned_s = "--:--";
 
-  auto caption = _T("--- Navigator not available: ongoing // current speed: ") \
-            + current_speed_s \
-            + " ---\n\t\t\t\t                                      " \
-            + waypoint_s \
-            +_T("\n\t\t\t\t\t") \
-            + time_start_s \
-            +_T("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t      ") \
+  auto waypoint_s = static_cast<std::string>(wp_current.name);
+
+  // WP Dist
+  const auto waypoint_distance = calculated.ordered_task_stats.current_leg.vector_remaining.distance;
+
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(2) << std::noshowpoint  << waypoint_distance/1000; 
+  auto waypoint_distance_s = oss.str(); 
+
+  // WP ALTD
+  const auto waypoint_altitude_diff = static_cast<int>(calculated.ordered_task_stats.current_leg.solution_remaining.GetRequiredAltitude());
+  auto waypoint_altitude_diff_s = std::to_string(waypoint_altitude_diff); 
+
+  // WP GR
+  const auto waypoint_GR = calculated.ordered_task_stats.current_leg.gradient;
+  auto waypoint_GR_s = std::to_string(static_cast<int>(waypoint_GR));
+
+  // e_WP_BearingDiff
+  Angle bearing_diff{};
+  bearing_diff.Zero();
+  if (basic.track_available) 
+    bearing_diff = calculated.ordered_task_stats.current_leg.vector_remaining.bearing - basic.track;
+  auto waypoint_direction = static_cast<int>(bearing_diff.AsDelta().Degrees());
+  auto waypoint_direction_s = std::to_string(waypoint_direction);
+
+  const auto caption1 = waypoint_distance_s + " km | " + waypoint_altitude_diff_s + " m | " + waypoint_GR_s + ":1";
+            // + _T("\t\t\t\t--- ") + current_speed_s + " | " + waypoint_direction_s + " ---\n";
+
+  const auto caption2 = std::string(time_start_s) \
+            + _T("\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t     ") \
             + time_local \
             +_T(" (") \
             + time_elapsed_s \
-            +_T(")\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t     ") \
+            +_T(")\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t     ") \
             + arrival_planned_s \
             +_T(" (") \
             + time_planned_s\
             + _T(")");
-          
+  
+  PixelRect pixelrect_caption1;
+  pixelrect_caption1 = rc.TopAligned(rc.GetHeight()*2/5);
+  pixelrect_caption1.Offset(rc.GetWidth()*4.8/20, rc.GetHeight()*1/20);
+  PixelRect pixelrect_caption2;
+  pixelrect_caption2 = rc.BottomAligned(rc.GetHeight()*1.9/5);
+
   canvas.SetBackgroundTransparent();
   canvas.SetTextColor(COLOR_RED);
-  text_renderer.Draw(canvas, rc, caption);
+  text_renderer1.Draw(canvas, pixelrect_caption1, caption1);
+  text_renderer2.Draw(canvas, pixelrect_caption2, caption2);
+  
+  Font fontt;
+  fontt.Load(FontDescription(Layout::VptScale(16)));
+  canvas.Select(fontt);
+
+  canvas.DrawClippedText({static_cast<int>(rc.GetWidth()*4.8/20.0),static_cast<int>(rc.GetHeight()/3)}, {{0,0}, {static_cast<int>(rc.GetWidth()),
+                                static_cast<int>(rc.GetHeight())}},waypoint_s);
+
+
+  NextArrowRenderer next_arrow{UIGlobals::GetLook().wind_arrow_info_box};
+  PixelRect pixelrect_next_arrow{{0,0},{0,0}};
+
+  pixelrect_next_arrow = rc.TopAligned(rc.GetHeight()*2.8/5);
+  pixelrect_next_arrow.Offset(rc.GetWidth()*1.2/5, rc.GetHeight()*1.4/10);
+  next_arrow.DrawArrow(canvas, pixelrect_next_arrow, bearing_diff);
 }
 
 void 
@@ -278,9 +336,9 @@ NavigatorRenderer::DrawProgressTask(const TaskSummary& summary, Canvas &canvas,
     const WaypointLook &waypoint_look = UIGlobals::GetMapLook().waypoint;
     
     WaypointIconRenderer waypoint_icon_renderer{waypoint_settings, waypoint_look, canvas};
-    const PixelPoint position_waypoint_left{rc_width/20, rc_height*1/2};
-    const PixelPoint position_waypoint_centered{rc_width/4, rc_height*1/2};
-    const PixelPoint position_waypoint_right{rc_width*18/20, rc_height*1/2};
+    const PixelPoint position_waypoint_left{static_cast<int>(rc_width*0.7/20.0), rc_height*1/2};
+    const PixelPoint position_waypoint_centered{static_cast<int>(rc_width*4.2/20.0), rc_height*1/2};
+    const PixelPoint position_waypoint_right{static_cast<int>(rc_width*19.0/20.0), rc_height*1/2};
     
     WaypointPtr waypoint_before;
     WaypointPtr waypoint_current;
@@ -297,7 +355,7 @@ NavigatorRenderer::DrawProgressTask(const TaskSummary& summary, Canvas &canvas,
       waypoint_current = task.GetActiveTaskPoint()->GetWaypointPtr();
       i = task.GetActiveIndex();
       
-      if(i == 0 || i == 1)
+      if(i == 0)
         waypoint_before = task.GetPoint(0).GetWaypointPtr();
       else
         waypoint_before = task.GetPoint(i-1).GetWaypointPtr();
@@ -309,7 +367,7 @@ NavigatorRenderer::DrawProgressTask(const TaskSummary& summary, Canvas &canvas,
     // std::cout << "cqscn " << waypoint_before->name << "  rtrtr :" << waypoint_before->elevation << std::endl;
     WaypointReachability wr = WaypointReachability::UNREACHABLE;
 
-    if(protected_task_manager != nullptr && task_size > 3) {
+    if(protected_task_manager != nullptr && task_size > 1) {
       waypoint_icon_renderer.Draw(*waypoint_before, position_waypoint_left, wr , true);
       waypoint_icon_renderer.Draw(*waypoint_current, position_waypoint_centered, wr , true);
       waypoint_icon_renderer.Draw(*waypoint_current, position_waypoint_right, wr , true);
