@@ -39,29 +39,29 @@ struct TaskSummary;
 
 namespace NavigatorRenderer
 {
-  /**
-  * This function is used to create the frame of the Navigator and
-  * also the frame of the waypoint
-  */
-  void DrawFrame(Canvas &canvas, const PixelRect &rc,
-            const NavigatorLook &look);
+/**
+* This function is used to create the frame of the Navigator and
+* also the frame of the waypoint
+*/
+void DrawFrame(Canvas &canvas, const PixelRect &rc,
+          const NavigatorLook &look) noexcept;
 
-  /**
-  * Draw information texts about the current task (ordered task) or 
-  * the current target (unordered task) 
-  * e.g. waypoint distance, start time, planned duration time, ...
-  */
-  void DrawText(Canvas &canvas, const Waypoint &wp_current, 
-            const PixelRect &rc, const NavigatorLook &look);
-  
-  /**
-  * Draw the progress of the current task with presntation of each taskpoint
-  */
-  void DrawProgressTask(const TaskSummary& summary, Canvas &canvas, const PixelRect &rc,
-            const NavigatorLook &look, const TaskLook &look_task, bool inverse);
+/**
+* Draw information texts about the current task (ordered task) or 
+* the current target (unordered task) 
+* e.g. waypoint distance, start time, planned duration time, ...
+*/
+void DrawText(Canvas &canvas, const Waypoint &wp_current, 
+          const PixelRect &rc, const NavigatorLook &look, bool inverse) noexcept;
 
-  /**
-  * Draw the icon of the current task and of the previous task
-  */
-  void DrawWaypointsIconsTitle(Canvas &canvas, const NavigatorLook &look);
+/**
+* Draw the progress of the current task with presntation of each taskpoint
+*/
+void DrawProgressTask(const TaskSummary& summary, Canvas &canvas, const PixelRect &rc,
+          const NavigatorLook &look, const TaskLook &look_task, bool inverse) noexcept;
+
+/**
+* Draw the icon of the current task and of the previous task
+*/
+void DrawWaypointsIconsTitle(Canvas &canvas, const NavigatorLook &look, bool inverse) noexcept;
 }

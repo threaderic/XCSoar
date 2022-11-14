@@ -38,7 +38,7 @@
 class NavigatorWindow : public AntiFlickerWindow {
   const NavigatorLook &look;
   const TaskLook &look_task;
-  const bool& inverse;
+  const bool inverse;
 
   AttitudeState attitude;
   
@@ -46,7 +46,7 @@ public:
   /**
    * Constructor. Initializes most class members.
    */
-  NavigatorWindow(const NavigatorLook &_look, const TaskLook &_look_task, const bool &_inverse) noexcept
+  NavigatorWindow(const NavigatorLook &_look, const TaskLook &_look_task, const bool _inverse) noexcept
     :look(_look), look_task(_look_task), inverse(_inverse) {
     attitude.Reset();
   }
@@ -64,46 +64,22 @@ protected:
     else
       canvas.ClearWhite();
 
-    // if (!attitude.bank_angle_available && !attitude.pitch_angle_available) {
-    //   NavigatorRenderer::DrawText(canvas, canvas.GetRect(), look);
-    //   return;
-    // }
-
-    const auto &basic = CommonInterface::Basic();
-    TimeStamp current_time{};
-    // int time_second{};
-    // unsigned int time_second_mod101{};
-
-    if (basic.time_available)
-      current_time = basic.time;
-    
-    // bool take_off = CommonInterface::Full().Calculated().flight.HasTakenOff();
-    bool task_valid = CommonInterface::Full().Calculated().ordered_task_stats.task_valid;
-
-    // time_second = current_time.ToDuration().count();
-    // time_second_mod101 = time_second%101;
-    // std::cout << "time: " 
-    //           << CommonInterface::Calculated().common_stats.ordered_summary.p_remaining 
-    //           << " mod100: " << time_second_mod101 
-    //           // << " waypoint: " << buffer
-    //           << " taken off: " << take_off
-    //           <<  std::endl;
-
     const PixelRect frame_navigator = canvas.GetRect().WithPadding(Layout::Scale(1));
     
     const int fnw_height = canvas.GetHeight();
     const int fnw_width = canvas.GetWidth();
-    const PixelRect frame_navigator_waypoint{{static_cast<int>(fnw_width*1.8/10.0),static_cast<int>(fnw_height*1.0/10.0)}, 
-                                                    {static_cast<int>(fnw_width*8/10.0), 
-                                                          static_cast<int>(fnw_height*6/10.0)}};
+    const PixelRect frame_navigator_waypoint{{fnw_width*18/100, fnw_height*1/10}, 
+                                             {fnw_width*8/10, fnw_height*5/10}};
  
     NavigatorRenderer::DrawFrame(canvas, frame_navigator, look);  
     NavigatorRenderer::DrawFrame(canvas, frame_navigator_waypoint, look);  
     NavigatorRenderer::DrawProgressTask(CommonInterface::Calculated().
-                common_stats.ordered_summary, canvas, canvas.GetRect(), look, look_task, false);
+                                        common_stats.ordered_summary, canvas, 
+                                        canvas.GetRect(), look, look_task, false);
 
+    bool task_valid = CommonInterface::Full().Calculated().ordered_task_stats.task_valid;
     if(task_valid)
-      NavigatorRenderer::DrawWaypointsIconsTitle(canvas, look);  
+      NavigatorRenderer::DrawWaypointsIconsTitle(canvas, look, inverse);  
   }
 };
 
@@ -112,7 +88,6 @@ NavigatorWidget::Update(const MoreData &basic) noexcept
 {
   NavigatorWindow &w = (NavigatorWindow &)GetWindow();
   w.ReadBlackboard(basic.attitude);
-  // w.Invalidate();
 }
 
 void

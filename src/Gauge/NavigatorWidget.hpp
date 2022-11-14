@@ -29,22 +29,22 @@ Copyright_License {
 
 class NavigatorWidget final : public WindowWidget,
                             private NullBlackboardListener {
-  void Update(const MoreData &basic) noexcept;
 
 protected:
   bool enable_auto_zoom = true, dragging = false;
   unsigned zoom = 2;
-
   // GestureManager gestures;
 
 public:
-
   /* virtual methods from class Widget */
   void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
   void Show(const PixelRect &rc) noexcept override;
   void Hide() noexcept override;
 
+
 private:
+  void Update(const MoreData &basic) noexcept;
+  
   /* virtual methods from class BlackboardListener */
   void OnGPSUpdate(const MoreData &basic) noexcept override;
 
