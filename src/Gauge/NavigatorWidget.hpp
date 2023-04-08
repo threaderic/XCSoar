@@ -23,17 +23,19 @@ Copyright_License {
 
 #pragma once
 
-#include "Widget/WindowWidget.hpp"
 #include "Blackboard/BlackboardListener.hpp"
 #include "UIUtil/GestureManager.hpp"
+#include "Widget/WindowWidget.hpp"
+
+class NavigatorWindow;
 
 class NavigatorWidget final : public WindowWidget,
-                            private NullBlackboardListener {
+                              private NullBlackboardListener {
 
+// std::unique_ptr<NavigatorWindow> view;
 protected:
-  bool enable_auto_zoom = true, dragging = false;
+  bool enable_auto_zoom = true;
   unsigned zoom = 2;
-  // GestureManager gestures;
 
 public:
   /* virtual methods from class Widget */
@@ -41,22 +43,9 @@ public:
   void Show(const PixelRect &rc) noexcept override;
   void Hide() noexcept override;
 
-
 private:
   void Update(const MoreData &basic) noexcept;
-  
+
   /* virtual methods from class BlackboardListener */
   void OnGPSUpdate(const MoreData &basic) noexcept override;
-
-// protected:
-//   bool OnMouseGesture(const TCHAR* gesture);
-
-//   /* virtual methods from class Window */
-//   void OnCreate() noexcept;
-//   bool OnMouseMove(PixelPoint p, unsigned keys) noexcept;
-//   bool OnMouseDown(PixelPoint p) noexcept;
-//   bool OnMouseUp(PixelPoint p) noexcept;
-//   bool OnMouseDouble(PixelPoint p) noexcept;
-//   bool OnKeyDown(unsigned key_code) noexcept;
-//   void OnCancelMode() noexcept;
 };

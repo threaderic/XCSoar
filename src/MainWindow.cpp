@@ -923,8 +923,21 @@ MainWindow::KillTopWidget() noexcept
 }
 
 void
-MainWindow::SetTopWidget(Widget *_widget) noexcept
-{
+MainWindow::SetTopWidget(Widget *_widget) noexcept {
+  const UISettings &ui_settings = CommonInterface::GetUISettings();
+
+  if (ui_settings.scale != 100)
+    /* call Initialise() again to reload fonts with the new scale */
+    Initialise();
+
+  PixelRect rc = GetClientRect();
+
+  const InfoBoxLayout::Layout ib_layout =
+    InfoBoxLayout::Calculate(rc, ui_settings.info_boxes.geometry);
+
+  assert(look != nullptr);
+  look->InitialiseConfigured(CommonInterface::GetUISettings(), Fonts::map,
+                             Fonts::map_bold, ib_layout.control_size.width);
   if (top_widget == nullptr && _widget == nullptr)
     return;
 
