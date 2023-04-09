@@ -55,6 +55,7 @@ Copyright_License {
 #include "Screen/Layout.hpp"
 #include "Task/ProtectedTaskManager.hpp"
 #include "Task/TaskBehaviour.hpp"
+#include "Task/TaskType.hpp"
 #include "UIGlobals.hpp"
 #include "UnitSymbolRenderer.hpp"
 #include "Units/System.hpp"
@@ -65,6 +66,7 @@ Copyright_License {
 #include "WindArrowRenderer.hpp"
 #include "tchar.h"
 #include "time/RoughTime.hpp"
+#include "time/Stamp.hpp"
 #include "ui/canvas/Canvas.hpp"
 #include "ui/canvas/Color.hpp"
 #include "ui/canvas/Font.hpp"
@@ -130,6 +132,7 @@ NavigatorRenderer::DrawFrame(Canvas &canvas, const PixelRect &rc,
 void
 NavigatorRenderer::DrawText(
   Canvas &canvas,
+  TaskType tp,
   [[maybe_unused]] const Waypoint &wp_current,
   const PixelRect &rc,
   [[maybe_unused]] const NavigatorLook &look,
@@ -148,13 +151,13 @@ NavigatorRenderer::DrawText(
   const RoughTimeDelta utc_no_offset{};
 
   StaticString<8> time_elapsed_s;
-  const auto time_elapsed =
-    TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_elapsed}};
-  const BasicStringBuffer<char, 8> time_elapsed_s_tmp =
-    FormatLocalTimeHHMM(time_elapsed, utc_no_offset);
-  if (has_started)
+  if (tp == TaskType::ORDERED && has_started && basic.time_available) {
+    const auto time_elapsed = TimeStamp{
+      FloatDuration{calculated.ordered_task_stats.total.time_elapsed}};
+    const BasicStringBuffer<char, 8> time_elapsed_s_tmp =
+      FormatLocalTimeHHMM(time_elapsed, utc_no_offset);
     time_elapsed_s.Format("%s", time_elapsed_s_tmp.c_str());
-  else
+  } else
     time_elapsed_s.Format("%s", "--:--");
   // TCHAR time_elapsed_s[10];
   // const auto time_elapsed_s_tmp =
@@ -167,7 +170,7 @@ NavigatorRenderer::DrawText(
 
   StaticString<8> time_start_s;
   const auto time_start = calculated.ordered_task_stats.start.time;
-  if (has_started)
+  if (tp == TaskType::ORDERED && has_started && basic.time_available)
     time_start_s.Format("%s", FormatLocalTimeHHMM(time_start, utc_offset1).c_str());
   else
     time_start_s.Format("%s", "--:--");
@@ -181,20 +184,31 @@ NavigatorRenderer::DrawText(
 
   StaticString<8> time_local_s;
   time_local_s.clear();
-  const BasicStringBuffer<TCHAR, 8> time =
-    FormatLocalTimeHHMM(basic.time, utc_offset1);
-  time_local_s.AppendFormat("%s", time.c_str());
+  if (basic.time_available) {
+    const BasicStringBuffer<TCHAR, 8> time =
+      FormatLocalTimeHHMM(basic.time, utc_offset1);
+    time_local_s.AppendFormat("%s", time.c_str());
+  } else {
+    time_local_s.Format("%s", "--:--");
+  }
+
   // TCHAR time_local_s[10];
   // snprintf(time_local_s, ARRAY_SIZE(time_local_s), _T("%s"),
   //          FormatLocalTimeHHMM(time, utc_offset1).c_str());
 
   StaticString<8> time_planned_s;
-  const auto time_planned =
-    TimeStamp{FloatDuration{calculated.ordered_task_stats.total.time_planned}};
-  if (has_started)
+  TimeStamp time_planned{};
+  if (tp == TaskType::ORDERED && has_started && basic.time_available) {
+    time_planned = TimeStamp{
+      FloatDuration{calculated.ordered_task_stats.total.time_planned}};
     time_planned_s.Format(
       "%s", FormatLocalTimeHHMM(time_planned, utc_no_offset).c_str());
-  else
+  } else if (tp != TaskType::ORDERED && basic.time_available) {
+    time_planned =
+      TimeStamp{FloatDuration{calculated.task_stats.total.time_planned}};
+    time_planned_s.Format(
+      "%s", FormatLocalTimeHHMM(time_planned, utc_no_offset).c_str());
+  } else
     time_planned_s.Format("%s", "--:--");
   // TCHAR time_planned_s[10];
   // const auto time_planned =
@@ -206,12 +220,18 @@ NavigatorRenderer::DrawText(
   //   snprintf(time_planned_s, ARRAY_SIZE(time_planned_s), _T("%s"), "--:--");
 
   StaticString<8> arrival_planned_s;
-  const auto arrival_planned = TimeStamp{
-    FloatDuration{time_start.ToDuration() + time_planned.ToDuration()}};
-  if (has_started)
+  TimeStamp arrival_planned{};
+  if ((tp == TaskType::ORDERED && has_started) && basic.time_available) {
+    arrival_planned = TimeStamp{
+      FloatDuration{time_start.ToDuration() + time_planned.ToDuration()}};
     arrival_planned_s.Format(
       "%s", FormatLocalTimeHHMM(arrival_planned, utc_offset1).c_str());
-  else
+  } else if (tp != TaskType::ORDERED && basic.time_available) {
+    arrival_planned = TimeStamp{
+      FloatDuration{basic.time.ToDuration() + time_planned.ToDuration()}};
+    arrival_planned_s.Format(
+      "%s", FormatLocalTimeHHMM(arrival_planned, utc_offset1).c_str());
+  } else
     arrival_planned_s.Format("%s", "--:--");
   // TCHAR arrival_planned_s[10];
   // const auto arrival_planned = TimeStamp{
@@ -231,12 +251,22 @@ NavigatorRenderer::DrawText(
   // e_WP_Distance
   StaticString<20> waypoint_distance_s;
   auto precision_waypoint_distance{0};
-  const auto waypoint_distance{
-    calculated.ordered_task_stats.current_leg.vector_remaining.distance};
+  auto waypoint_distance{.0};
+  if (tp == TaskType::ORDERED) {
+    waypoint_distance =
+      calculated.ordered_task_stats.current_leg.vector_remaining.distance;
+  } else {
+    waypoint_distance = calculated.task_stats.current_leg.vector_remaining.distance;
+  }
+
   if (waypoint_distance < 5000.0)
     precision_waypoint_distance = 1;
+
   FormatUserDistance(waypoint_distance, waypoint_distance_s.data(), true,
                      precision_waypoint_distance);
+
+
+
   // TCHAR waypoint_distance_s[20];
   // auto precision_waypoint_distance{0};
   // const auto waypoint_distance{
@@ -250,10 +280,16 @@ NavigatorRenderer::DrawText(
   // e_WP_AltReq
   // TODO: or e_WP_H ?
   StaticString<20> waypoint_altitude_diff_s;
-  FormatAltitude(
-    waypoint_altitude_diff_s.data(),
-    calculated.ordered_task_stats.current_leg.solution_remaining.GetRequiredAltitude(),
-    Units::GetUserAltitudeUnit(), true);
+  auto waypoint_altitude_diff{.0};
+  if (tp == TaskType::ORDERED) {
+    waypoint_altitude_diff = calculated.ordered_task_stats.current_leg
+                               .solution_remaining.GetRequiredAltitude();
+  } else {
+    waypoint_altitude_diff =
+      calculated.task_stats.current_leg.solution_remaining.GetRequiredAltitude();
+  }
+  FormatAltitude(waypoint_altitude_diff_s.data(), waypoint_altitude_diff,
+                 Units::GetUserAltitudeUnit(), true);
   // TCHAR waypoint_altitude_diff_s[20];
   // FormatAltitude(
   //   waypoint_altitude_diff_s,
@@ -262,9 +298,10 @@ NavigatorRenderer::DrawText(
 
   // e_SpeedTaskAvg
   StaticString<20> waypoint_average_speed_s;
-  FormatUserSpeed(calculated.task_stats.total.travelled.GetSpeed(),
-                  waypoint_average_speed_s.data(), true, 0);
-  if (!has_started) {
+  if (tp == TaskType::ORDERED && has_started) {
+    FormatUserSpeed(calculated.task_stats.total.travelled.GetSpeed(),
+                    waypoint_average_speed_s.data(), true, 0);
+  } else {
     waypoint_average_speed_s.Format("%s", "---");
   }
   // TCHAR waypoint_average_speed_s[20];
@@ -277,8 +314,12 @@ NavigatorRenderer::DrawText(
 
   // e_WP_GR
   StaticString<20> waypoint_GR_s;
-  const int waypoint_GR =
-    std::round(calculated.ordered_task_stats.current_leg.gradient);
+  auto waypoint_GR{0};
+  if (tp == TaskType::ORDERED) {
+    waypoint_GR = std::round(calculated.ordered_task_stats.current_leg.gradient);
+  } else {
+    waypoint_GR = std::round(calculated.task_stats.current_leg.gradient);
+  }
   waypoint_GR_s.Format("%d:1", waypoint_GR);
   // TCHAR waypoint_GR_s[20];
   // const int waypoint_GR =
@@ -304,10 +345,14 @@ NavigatorRenderer::DrawText(
 
   if (!basic.track_available)
     bearing_diff.Zero();
-  else
+  else if (tp == TaskType::ORDERED) {
     bearing_diff =
       calculated.ordered_task_stats.current_leg.vector_remaining.bearing -
       basic.track;
+  } else {
+    bearing_diff = calculated.task_stats.current_leg.vector_remaining.bearing -
+      basic.track;
+  }
 
   const int waypoint_direction = std::round(bearing_diff.AsDelta().Degrees());
   waypoint_direction_s.Format("< %d°", waypoint_direction);
@@ -417,7 +462,7 @@ NavigatorRenderer::DrawText(
 
   canvas.Select(font);
 
-  std::cout << canvas.GetHeight() << std::endl;
+  // std::cout << canvas.GetHeight() << std::endl;
   if (canvas.GetWidth() > canvas.GetHeight() * 4)
     canvas.DrawClippedText(
       {static_cast<int>(rc_width * 5 / 200), static_cast<int>(rc_height * 8 / 100)},
@@ -664,11 +709,13 @@ NavigatorRenderer::DrawWaypointsIconsTitle(
   /////////////////////////////////
 
   if (protected_task_manager != nullptr && task_size > 1) {
-    waypoint_icon_renderer.Draw(
-      *waypoint_before, position_waypoint_left, wr_before, true);
+    if (waypoint_before != nullptr)
+      waypoint_icon_renderer.Draw(
+        *waypoint_before, position_waypoint_left, wr_before, true);
     // waypoint_icon_renderer.Draw(*waypoint_current,
     // position_waypoint_centered, wr , true);
-    waypoint_icon_renderer.Draw(
-      *waypoint_current, position_waypoint_right, wr_current, true);
+    if (waypoint_current != nullptr)
+      waypoint_icon_renderer.Draw(
+        *waypoint_current, position_waypoint_right, wr_current, true);
   }
 }

@@ -40,6 +40,7 @@ Copyright_License {
 #include "Gauge/GaugeFLARM.hpp"
 #include "Gauge/GaugeThermalAssistant.hpp"
 #include "Gauge/GlueGaugeVario.hpp"
+#include "Gauge/NavigatorWidget.hpp"
 #include "Form/Form.hpp"
 #include "Widget/Widget.hpp"
 #include "Look/GlobalFonts.hpp"
@@ -54,6 +55,8 @@ Copyright_License {
 #include "UIReceiveBlackboard.hpp"
 #include "UISettings.hpp"
 #include "Interface.hpp"
+
+// #include <iostream>
 
 static constexpr unsigned separator_height = 2;
 
@@ -562,15 +565,31 @@ MainWindow::StopDragging() noexcept
 }
 
 void
-MainWindow::OnCancelMode() noexcept
-{
+MainWindow::OnCancelMode() noexcept {
+  if (HaveTopWidget()) {
+    // std::cout << p.x << ", " << p.y << std::endl;
+    auto nav = static_cast<NavigatorWidget *>(top_widget);
+    nav->GetWindow()->OnCancelMode();
+  }
+
   SingleWindow::OnCancelMode();
   StopDragging();
 }
 
 bool
-MainWindow::OnMouseDown(PixelPoint p) noexcept
-{
+MainWindow::OnMouseDown(PixelPoint p) noexcept {
+
+  PixelRect main_rect = GetMainRect();
+  PixelRect top_rect = GetTopWidgetRect(main_rect, top_widget);
+
+  if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
+      InputEvents::IsDefault()) {
+    // std::cout << p.x << ", " << p.y << std::endl;
+    auto nav = static_cast<NavigatorWidget *>(top_widget);
+    nav->GetWindow()->OnMouseDown(p);
+    return true;
+  }
+
   if (SingleWindow::OnMouseDown(p))
     return true;
 
@@ -584,8 +603,19 @@ MainWindow::OnMouseDown(PixelPoint p) noexcept
 }
 
 bool
-MainWindow::OnMouseUp(PixelPoint p) noexcept
-{
+MainWindow::OnMouseUp(PixelPoint p) noexcept {
+
+  PixelRect main_rect = GetMainRect();
+  PixelRect top_rect = GetTopWidgetRect(main_rect, top_widget);
+
+  if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
+      InputEvents::IsDefault()) {
+    // std::cout << p.x << ", " << p.y << std::endl;
+    auto nav = static_cast<NavigatorWidget *>(top_widget);
+    nav->GetWindow()->OnMouseUp(p);
+    return true;
+  }
+
   if (SingleWindow::OnMouseUp(p))
     return true;
 
@@ -601,8 +631,18 @@ MainWindow::OnMouseUp(PixelPoint p) noexcept
 }
 
 bool
-MainWindow::OnMouseDouble(PixelPoint p) noexcept
-{
+MainWindow::OnMouseDouble(PixelPoint p) noexcept {
+  PixelRect main_rect = GetMainRect();
+  PixelRect top_rect = GetTopWidgetRect(main_rect, top_widget);
+
+  if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
+      InputEvents::IsDefault()) {
+    // std::cout << p.x << ", " << p.y << std::endl;
+    auto nav = static_cast<NavigatorWidget *>(top_widget);
+    nav->GetWindow()->OnMouseDouble(p);
+    return true;
+  }
+
   if (SingleWindow::OnMouseDouble(p))
     return true;
 
@@ -614,8 +654,17 @@ MainWindow::OnMouseDouble(PixelPoint p) noexcept
 }
 
 bool
-MainWindow::OnMouseMove(PixelPoint p, unsigned keys) noexcept
-{
+MainWindow::OnMouseMove(PixelPoint p, unsigned keys) noexcept {
+  PixelRect main_rect = GetMainRect();
+  PixelRect top_rect = GetTopWidgetRect(main_rect, top_widget);
+
+  if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
+      InputEvents::IsDefault()) {
+    // std::cout << p.x << ", " << p.y << std::endl;
+    auto nav = static_cast<NavigatorWidget *>(top_widget);
+    nav->GetWindow()->OnMouseMove(p, keys);
+  }
+
   if (SingleWindow::OnMouseMove(p, keys))
     return true;
 

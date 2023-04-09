@@ -24,27 +24,99 @@ Copyright_License {
 #pragma once
 
 #include "Blackboard/BlackboardListener.hpp"
+#include "Components.hpp"
+#include "Engine/Task/Ordered/OrderedTask.hpp"
+#include "Engine/Task/Ordered/Points/OrderedTaskPoint.hpp"
+#include "Engine/Task/TaskManager.hpp"
+#include "Engine/Task/Unordered/AlternateList.hpp"
+#include "Input/InputEvents.hpp"
+#include "Interface.hpp"
+#include "Look/Look.hpp"
+#include "Look/NavigatorLook.hpp"
+#include "MainWindow.hpp"
+#include "Screen/Layout.hpp"
+#include "Task/ProtectedTaskManager.hpp"
+#include "UIGlobals.hpp"
 #include "UIUtil/GestureManager.hpp"
+#include "Widget/ContainerWidget.hpp"
 #include "Widget/WindowWidget.hpp"
+#include "ui/window/AntiFlickerWindow.hpp"
+/**
+ * A Window which renders a Navigator
+ */
+class NavigatorWindow : public PaintWindow {
 
-class NavigatorWindow;
+  const NavigatorLook &look;
+  const TaskLook &look_task;
 
-class NavigatorWidget final : public WindowWidget,
-                              private NullBlackboardListener {
+  const bool inverse;
 
-// std::unique_ptr<NavigatorWindow> view;
+  AttitudeState attitude;
+
+  GestureManager gestures;
+  bool dragging{false};
+  bool ignore_single_click{false};
+
+  PeriodClock mouse_down_clock;
+
+public:
+  /**
+   * Constructor. Initializes most class members.
+   */
+  NavigatorWindow(const NavigatorLook &_look, const TaskLook &_look_task,
+                  const bool _inverse) noexcept;
+
+  void ReadBlackboard(const AttitudeState _attitude) noexcept;
+
+protected:
+  /* virtual methods from AntiFlickerWindow */
+  void OnPaint(Canvas &canvas) noexcept override;
+
+private:
+  void StopDragging();
+
+public:
+  bool OnGesture(const TCHAR *gesture);
+  bool OnMouseDouble([[maybe_unused]] PixelPoint p) noexcept override;
+  bool OnMouseDown(PixelPoint p) noexcept override;
+  bool OnMouseUp([[maybe_unused]] PixelPoint p) noexcept override;
+  bool OnMouseMove(PixelPoint p, [[maybe_unused]] unsigned keys) noexcept override;
+  void OnCancelMode() noexcept override;
+  bool OnKeyDown(unsigned key_code) noexcept override;
+};
+
+
+class NavigatorWidget final :
+  public NullWidget,
+  private NullBlackboardListener {
+
+  // LiveBlackboard &blackboard;
+  // const NavigatorLook &look;
+
+  std::unique_ptr<NavigatorWindow> NavWindow;
+
 protected:
   bool enable_auto_zoom = true;
   unsigned zoom = 2;
 
 public:
+  // NavigatorWidget() noexcept;
+
+  ~NavigatorWidget() noexcept = default;
+
   /* virtual methods from class Widget */
   void Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept override;
   void Show(const PixelRect &rc) noexcept override;
   void Hide() noexcept override;
+  void Move(const PixelRect &rc) noexcept override;
+  bool SetFocus() noexcept override;
 
+  NavigatorWindow* GetWindow() noexcept{
+    return NavWindow.get();
+  }
 private:
   void Update(const MoreData &basic) noexcept;
+  void UpdateLayout() noexcept;
 
   /* virtual methods from class BlackboardListener */
   void OnGPSUpdate(const MoreData &basic) noexcept override;

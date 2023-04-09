@@ -25,6 +25,7 @@ Copyright_License {
 
 
 #include "Engine/Waypoint/Ptr.hpp"
+#include "Engine/Task/TaskType.hpp"
 
 struct PixelRect;
 struct PixelPoint;
@@ -51,7 +52,7 @@ DrawFrame(Canvas &canvas, const PixelRect &rc, const NavigatorLook &look) noexce
 * e.g. waypoint distance, start time, planned duration time, ...
 */
 void
-DrawText(Canvas &canvas, const Waypoint &wp_current, const PixelRect &rc,
+DrawText(Canvas &canvas, TaskType tp, const Waypoint &wp_current, const PixelRect &rc,
          const NavigatorLook &look, bool inverse) noexcept;
 
 /**

@@ -22,212 +22,244 @@
 */
 
 #include "NavigatorWidget.hpp"
-#include "Components.hpp"
-#include "Engine/Task/Ordered/OrderedTask.hpp"
-#include "Engine/Task/Ordered/Points/OrderedTaskPoint.hpp"
-#include "Engine/Task/TaskManager.hpp"
-#include "Engine/Task/Unordered/AlternateList.hpp"
 #include "InfoBoxes/InfoBoxWindow.hpp"
 #include "Input/InputEvents.hpp"
 #include "Interface.hpp"
-#include "Look/Look.hpp"
 #include "Renderer/NavigatorRenderer.hpp"
-#include "Screen/Layout.hpp"
-#include "Task/ProtectedTaskManager.hpp"
-#include "UIGlobals.hpp"
-#include "UIUtil/GestureManager.hpp"
+#include "Task/Points/TaskWaypoint.hpp"
+#include "Task/TaskType.hpp"
+#include "Task/Unordered/GotoTask.hpp"
 #include "ui/canvas/Canvas.hpp"
-#include "ui/window/AntiFlickerWindow.hpp"
-#include "ui/window/DoubleBufferWindow.hpp"
-#include "ui/window/PaintWindow.hpp"
-
 #include <iostream>
 
-/**
- * A Window which renders a Navigator
- */
-class NavigatorWindow : public AntiFlickerWindow {
-  const NavigatorLook &look;
-  const TaskLook &look_task;
-  const bool inverse;
-  AttitudeState attitude;
+NavigatorWindow::NavigatorWindow(const NavigatorLook &_look,
+                                 const TaskLook &_look_task, const bool _inverse) noexcept
+  : look(_look), look_task(_look_task), inverse(_inverse), dragging(false) {}
 
-  GestureManager gestures;
-  bool dragging;
+void
+NavigatorWindow::ReadBlackboard(const AttitudeState _attitude) noexcept {
+  attitude = _attitude;
+  Invalidate();
+}
 
-public:
-  /**
-   * Constructor. Initializes most class members.
-   */
-  NavigatorWindow(const NavigatorLook &_look, const TaskLook &_look_task,
-                  const bool _inverse) noexcept
-    : look(_look), look_task(_look_task), inverse(_inverse), dragging(false) {}
+void
+NavigatorWindow::OnPaint(Canvas &canvas) noexcept {
+  if (inverse)
+    canvas.Clear(COLOR_BLACK);
+  else
+    canvas.ClearWhite();
 
-  void ReadBlackboard(const AttitudeState _attitude) noexcept {
-    attitude = _attitude;
-    Invalidate();
-  }
+  TaskType tp{};
+  WaypointPtr waypoint_before;
+  WaypointPtr wp_current;
 
-protected:
-  /* virtual methods from AntiFlickerWindow */
-  void OnPaintBuffer(Canvas &canvas) noexcept override {
-    if (inverse)
-      canvas.Clear(COLOR_BLACK);
-    else
-      canvas.ClearWhite();
+  // bool task_valid =
+  //   CommonInterface::Full().Calculated().ordered_task_stats.task_valid;
+  unsigned task_size{};
+  unsigned i{};
 
-    WaypointPtr waypoint_before;
-    WaypointPtr wp_current;
+  if (protected_task_manager != nullptr) {
+    ProtectedTaskManager::Lease lease(*protected_task_manager);
 
-    unsigned task_size{};
-    unsigned i{};
+    const OrderedTask &task = lease->GetOrderedTask();
 
-    if (protected_task_manager != nullptr) {
-      ProtectedTaskManager::Lease lease(*protected_task_manager);
+    const auto &activeNextPoint = lease->GetActiveTaskPoint();
 
-      const OrderedTask &task = lease->GetOrderedTask();
+    task_size = task.TaskSize();
+    tp = lease->GetMode();
 
-      task_size = task.TaskSize();
-      wp_current = task.GetActiveTaskPoint()->GetWaypointPtr();
+    if (lease->IsMode(TaskType::ORDERED)) {
       i = task.GetActiveIndex();
-
+      wp_current = task.GetActiveTaskPoint()->GetWaypointPtr();
       if (i == 0)
         waypoint_before = task.GetPoint(0).GetWaypointPtr();
       else
         waypoint_before = task.GetPoint(i - 1).GetWaypointPtr();
-
-      // std::cout << "\nhas started? " << task.TaskStarted() << "\nhas
-      // finished? " << task.GetStats().task_finished << std::endl;
+    } else if (lease->IsMode(TaskType::GOTO) || lease->IsMode(TaskType::ABORT)) {
+      wp_current = activeNextPoint->GetWaypointPtr();
+    } else if (lease->IsMode(TaskType::NONE)) {
+      wp_current = nullptr;
     }
 
-    const PixelRect frame_navigator =
-      canvas.GetRect().WithPadding(Layout::Scale(1));
 
-    const int fnw_height = canvas.GetHeight();
-    const int fnw_width = canvas.GetWidth();
-    const PixelRect frame_navigator_waypoint{
-      {fnw_width * 18 / 100, fnw_height * 1 / 10},
-      {fnw_width * 8 / 10, fnw_height * 5 / 10}};
+    // std::cout << "\nhas started? " << task.TaskStarted() << "\nhas
+    // finished? " << task.GetStats().task_finished << std::endl;
+  }
 
-    NavigatorRenderer::DrawFrame(canvas, frame_navigator, look);
-    NavigatorRenderer::DrawFrame(canvas, frame_navigator_waypoint, look);
+  const PixelRect frame_navigator = canvas.GetRect().WithPadding(Layout::Scale(1));
+
+  const int fnw_height = canvas.GetHeight();
+  const int fnw_width = canvas.GetWidth();
+  const PixelRect frame_navigator_waypoint{
+    {fnw_width * 18 / 100, fnw_height * 1 / 10},
+    {fnw_width * 8 / 10, fnw_height * 5 / 10}};
+
+  NavigatorRenderer::DrawFrame(canvas, frame_navigator, look);
+  NavigatorRenderer::DrawFrame(canvas, frame_navigator_waypoint, look);
+
+  if (tp == TaskType::ORDERED)
     NavigatorRenderer::DrawProgressTask(
       CommonInterface::Calculated().common_stats.ordered_summary, canvas,
       canvas.GetRect(), look, look_task, false);
 
+  if (wp_current != nullptr)
     NavigatorRenderer::DrawText(
-      canvas, *wp_current, canvas.GetRect(), look, inverse);
+      canvas, tp, *wp_current, canvas.GetRect(), look, inverse);
 
-    bool task_valid =
-      CommonInterface::Full().Calculated().ordered_task_stats.task_valid;
-    if (task_valid)
-      NavigatorRenderer::DrawWaypointsIconsTitle(
-        canvas, waypoint_before, wp_current, task_size, look, inverse);
-  }
-
-private:
-  void StopDragging() {
-    if (!dragging)
-      return;
-
-    dragging = false;
-    ReleaseCapture();
-  }
-
-protected:
-  /** from class Window */
-  // void OnCreate() override{
-
-  // }
-  // void OnDestroy() noexcept override{
-
-  // }
-  // void OnResize([[maybe_unused]] PixelSize new_size) noexcept override{
-
-  // }
-  // bool OnMouseWheel(PixelPoint p, int delta) noexcept override;
-
-  bool OnGesture(const TCHAR *gesture) {
-    {
-      
-      if (StringIsEqual(gesture, _T("U"))) {
-        InputEvents::ShowMenu();
-        return true;
-      }
-      if (StringIsEqual(gesture, _T("D"))) {
-        InputEvents::ShowMenu();
-        return true;
-      }
-      if (StringIsEqual(gesture, _T("UD"))) {
-        InputEvents::ShowMenu();
-        return true;
-      }
-      if (StringIsEqual(gesture, _T("DR"))) {
-        InputEvents::ShowMenu();
-        return true;
-      }
-      if (StringIsEqual(gesture, _T("RL"))) {
-        InputEvents::ShowMenu();
-        return true;
-      }
-
-      return InputEvents::processGesture(gesture);
-    }
-  }
-
-  bool OnMouseDouble([[maybe_unused]] PixelPoint p) noexcept override {
-    StopDragging();
-    InputEvents::ShowMenu();
-    return true;
-  }
-
-  bool OnMouseDown(PixelPoint p) noexcept override {
-    std::cout << "on gesture" << std::endl;
-    if (!dragging) {
-      dragging = true;
-      SetCapture();
-      gestures.Start(p, Layout::Scale(1));
-    }
-
-    return true;
-  }
-
-  bool OnMouseUp([[maybe_unused]] PixelPoint p) noexcept override {
-    if (dragging) {
-      StopDragging();
-
-      const TCHAR *gesture = gestures.Finish();
-      if (gesture && OnGesture(gesture))
-        return true;
-    }
-
-    return false;
-  }
-
-  bool OnMouseMove(PixelPoint p, [[maybe_unused]] unsigned keys) noexcept override {
-    if (dragging)
-      gestures.Update(p);
-
-    return true;
-  }
-
-  void OnCancelMode() noexcept override {
-#ifndef USE_WINUSER
-    ReleaseCapture();
-#endif
-    StopDragging();
-  }
-
-  bool OnKeyDown(unsigned key_code) noexcept override {
-    return InputEvents::processKey(key_code);
-  }
-};
+  // if (task_valid)
+  NavigatorRenderer::DrawWaypointsIconsTitle(
+    canvas, waypoint_before, wp_current, task_size, look, inverse);
+}
 
 void
-NavigatorWidget::Update(const MoreData &basic) noexcept {
-  NavigatorWindow &w = (NavigatorWindow &)GetWindow();
-  w.ReadBlackboard(basic.attitude);
-  w.Invalidate();
+NavigatorWindow::StopDragging() {
+  // std::cout << "on gesture stop dragging" << std::endl;
+  if (!dragging)
+    return;
+
+  dragging = false;
+  ReleaseCapture();
+}
+
+
+bool
+NavigatorWindow::OnGesture(const TCHAR *gesture) {
+  {
+
+    if (StringIsEqual(gesture, _T("U"))) {
+      InputEvents::ShowMenu();
+      return true;
+    }
+    if (StringIsEqual(gesture, _T("D"))) {
+      InputEvents::ShowMenu();
+      return true;
+    }
+    if (StringIsEqual(gesture, _T("L"))) {
+      // InputEvents::eventTaskTransition(const TCHAR *misc);
+      InputEvents::eventAdjustWaypoint("previouswrap");
+      // InputEvents::ShowMenu();
+      return true;
+    }
+    if (StringIsEqual(gesture, _T("R"))) {
+      InputEvents::eventAdjustWaypoint("nextwrap");
+      // InputEvents::ShowMenu();
+      return true;
+    }
+    if (StringIsEqual(gesture, _T("UD"))) {
+      InputEvents::ShowMenu();
+      return true;
+    }
+    if (StringIsEqual(gesture, _T("DR"))) {
+      InputEvents::ShowMenu();
+      return true;
+    }
+    if (StringIsEqual(gesture, _T("RL"))) {
+      InputEvents::ShowMenu();
+      return true;
+    }
+    if (gesture) {
+      // std::cout << "on gesture mouse simple" << std::endl;
+      InputEvents::ShowMenu();
+      return true;
+    }
+
+    return true;
+    // return InputEvents::processGesture(gesture);
+  }
+}
+
+bool
+NavigatorWindow::OnMouseDouble([[maybe_unused]] PixelPoint p) noexcept {
+  // std::cout << "on gesture mouse double" << std::endl;
+  StopDragging();
+  ignore_single_click = true;
+  InputEvents::ShowMenu();
+  return true;
+}
+
+bool
+NavigatorWindow::OnMouseDown(PixelPoint p) noexcept {
+  // std::cout << "on gesture" << std::endl;
+  // Ignore single click event if double click detected
+  if (ignore_single_click)
+    return true;
+
+  mouse_down_clock.Update();
+
+  if (!dragging) {
+    dragging = true;
+    SetCapture();
+    gestures.Start(p, Layout::Scale(20));
+  }
+
+  return true;
+}
+
+bool
+NavigatorWindow::OnMouseUp([[maybe_unused]] PixelPoint p) noexcept {
+  // Ignore single click event if double click detected
+  if (ignore_single_click) {
+    ignore_single_click = false;
+    return true;
+  }
+
+  const auto click_time = mouse_down_clock.Elapsed();
+  mouse_down_clock.Reset();
+
+  if (dragging) {
+    StopDragging();
+
+    const TCHAR *gesture = gestures.Finish();
+    if (gesture && OnGesture(gesture))
+      return true;
+
+    if (click_time > std::chrono::milliseconds(400) &&
+        click_time < std::chrono::milliseconds(1000))
+      // on gesture mouse up == simpleClick
+      // std::cout << "on current Task" << std::endl;
+      InputEvents::eventAnalysis("AnalysisPage::TASK");
+
+    else if (click_time > std::chrono::milliseconds(1000) &&
+             click_time < std::chrono::milliseconds(3000))
+      InputEvents::eventSetup("Task");
+
+    else
+      return false;
+  }
+
+
+  return false;
+}
+
+bool
+NavigatorWindow::OnMouseMove(PixelPoint p, [[maybe_unused]] unsigned keys) noexcept {
+  if (dragging)
+    gestures.Update(p);
+
+  return true;
+}
+
+void
+NavigatorWindow::OnCancelMode() noexcept {
+#ifndef USE_WINUSER
+  ReleaseCapture();
+#endif
+  StopDragging();
+}
+
+bool
+NavigatorWindow::OnKeyDown(unsigned key_code) noexcept {
+  return InputEvents::processKey(key_code);
+}
+////// ------------------------------------------------------------------//////
+
+
+void
+NavigatorWidget::Update([[maybe_unused]] const MoreData &basic) noexcept {
+  // NavigatorWindow &w = (NavigatorWindow &)GetWindow();
+
+  NavWindow->ReadBlackboard(basic.attitude);
+  NavWindow->Invalidate();
 }
 
 void
@@ -238,28 +270,49 @@ NavigatorWidget::Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept 
   style.Hide();
   style.Disable();
 
-  auto w = std::make_unique<NavigatorWindow>(
+  NavWindow = std::make_unique<NavigatorWindow>(
     look.navigator, look.map.task, look.info_box.inverse);
-  w->Create(parent, rc, style);
-  SetWindow(std::move(w));
+  NavWindow->Create(parent, rc, style);
+  // SetWindow(std::move(NavWindow));
 }
 
 void
-NavigatorWidget::Show(const PixelRect &rc) noexcept {
+NavigatorWidget::Show([[maybe_unused]] const PixelRect &rc) noexcept {
   Update(CommonInterface::Basic());
+  UpdateLayout();
   CommonInterface::GetLiveBlackboard().AddListener(*this);
 
-  WindowWidget::Show(rc);
+  // WindowWidget::Show(rc);
+  NavWindow->Show();
 }
 
 void
 NavigatorWidget::Hide() noexcept {
-  WindowWidget::Hide();
+  // WindowWidget::Hide();
+  NavWindow->Hide();
 
   CommonInterface::GetLiveBlackboard().RemoveListener(*this);
 }
 
 void
+NavigatorWidget::Move(const PixelRect &rc) noexcept {
+  NavWindow->Move(rc);
+
+  UpdateLayout();
+}
+
+bool
+NavigatorWidget::SetFocus() noexcept {
+  return false;
+}
+
+void
 NavigatorWidget::OnGPSUpdate(const MoreData &basic) noexcept {
   Update(basic);
+}
+
+void
+NavigatorWidget::UpdateLayout() noexcept {
+  const PixelRect rc = NavWindow->GetClientRect();
+  NavWindow->Move(rc);
 }
