@@ -91,10 +91,10 @@ GetTopWidgetRect(const PixelRect &rc, const Widget *top_widget) noexcept
   const unsigned requested_height = top_widget->GetMinimumSize().height;
   unsigned height;
   if (requested_height > 0) {
-    const unsigned max_height = rc.GetHeight() / 4;
+    const unsigned max_height = rc.GetHeight() * 30 / 100;
     height = std::min(max_height, requested_height);
   } else {
-    const unsigned recommended_height = rc.GetHeight() / 7;
+    const unsigned recommended_height = rc.GetHeight() * 17 / 100;
     height = recommended_height;
   }
 
@@ -568,8 +568,9 @@ void
 MainWindow::OnCancelMode() noexcept {
   if (HaveTopWidget()) {
     // std::cout << p.x << ", " << p.y << std::endl;
-    auto nav = static_cast<NavigatorWidget *>(top_widget);
-    nav->GetWindow()->OnCancelMode();
+    auto nav = dynamic_cast<NavigatorWidget *>(top_widget);
+    if (nav != nullptr)
+      nav->GetWindow()->OnCancelMode();
   }
 
   SingleWindow::OnCancelMode();
@@ -585,9 +586,11 @@ MainWindow::OnMouseDown(PixelPoint p) noexcept {
   if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
       InputEvents::IsDefault()) {
     // std::cout << p.x << ", " << p.y << std::endl;
-    auto nav = static_cast<NavigatorWidget *>(top_widget);
-    nav->GetWindow()->OnMouseDown(p);
-    return true;
+    auto nav = dynamic_cast<NavigatorWidget *>(top_widget);
+    if (nav != nullptr) {
+      nav->GetWindow()->OnMouseDown(p);
+      return true;
+    }
   }
 
   if (SingleWindow::OnMouseDown(p))
@@ -611,9 +614,11 @@ MainWindow::OnMouseUp(PixelPoint p) noexcept {
   if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
       InputEvents::IsDefault()) {
     // std::cout << p.x << ", " << p.y << std::endl;
-    auto nav = static_cast<NavigatorWidget *>(top_widget);
-    nav->GetWindow()->OnMouseUp(p);
-    return true;
+    auto nav = dynamic_cast<NavigatorWidget *>(top_widget);
+    if (nav != nullptr) {
+      nav->GetWindow()->OnMouseUp(p);
+      return true;
+    }
   }
 
   if (SingleWindow::OnMouseUp(p))
@@ -638,9 +643,11 @@ MainWindow::OnMouseDouble(PixelPoint p) noexcept {
   if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
       InputEvents::IsDefault()) {
     // std::cout << p.x << ", " << p.y << std::endl;
-    auto nav = static_cast<NavigatorWidget *>(top_widget);
-    nav->GetWindow()->OnMouseDouble(p);
-    return true;
+    auto nav = dynamic_cast<NavigatorWidget *>(top_widget);
+    if (nav != nullptr) {
+      nav->GetWindow()->OnMouseDouble(p);
+      return true;
+    }
   }
 
   if (SingleWindow::OnMouseDouble(p))
@@ -661,8 +668,11 @@ MainWindow::OnMouseMove(PixelPoint p, unsigned keys) noexcept {
   if (HaveTopWidget() && top_rect.Contains(p) && !HasDialog() &&
       InputEvents::IsDefault()) {
     // std::cout << p.x << ", " << p.y << std::endl;
-    auto nav = static_cast<NavigatorWidget *>(top_widget);
-    nav->GetWindow()->OnMouseMove(p, keys);
+    auto nav = dynamic_cast<NavigatorWidget *>(top_widget);
+    if (nav != nullptr) {
+      nav->GetWindow()->OnMouseMove(p, keys);
+      return true;
+    }
   }
 
   if (SingleWindow::OnMouseMove(p, keys))

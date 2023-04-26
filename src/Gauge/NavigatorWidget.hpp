@@ -48,6 +48,7 @@ class NavigatorWindow : public PaintWindow {
 
   const NavigatorLook &look;
   const TaskLook &look_task;
+  const InfoBoxLook &look_infobox;
 
   const bool inverse;
 
@@ -64,7 +65,7 @@ public:
    * Constructor. Initializes most class members.
    */
   NavigatorWindow(const NavigatorLook &_look, const TaskLook &_look_task,
-                  const bool _inverse) noexcept;
+                  const InfoBoxLook &_look_infobox, const bool _inverse) noexcept;
 
   void ReadBlackboard(const AttitudeState _attitude) noexcept;
 
@@ -86,9 +87,7 @@ public:
 };
 
 
-class NavigatorWidget final :
-  public NullWidget,
-  private NullBlackboardListener {
+class NavigatorWidget final : public NullWidget, private NullBlackboardListener {
 
   // LiveBlackboard &blackboard;
   // const NavigatorLook &look;
@@ -111,7 +110,7 @@ public:
   void Move(const PixelRect &rc) noexcept override;
   bool SetFocus() noexcept override;
 
-  NavigatorWindow* GetWindow() noexcept{
+  NavigatorWindow* GetWindow() noexcept {
     return NavWindow.get();
   }
 private:

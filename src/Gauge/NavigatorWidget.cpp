@@ -25,6 +25,7 @@
 #include "InfoBoxes/InfoBoxWindow.hpp"
 #include "Input/InputEvents.hpp"
 #include "Interface.hpp"
+#include "Look/InfoBoxLook.hpp"
 #include "Renderer/NavigatorRenderer.hpp"
 #include "Task/Points/TaskWaypoint.hpp"
 #include "Task/TaskType.hpp"
@@ -32,14 +33,16 @@
 #include "ui/canvas/Canvas.hpp"
 #include <iostream>
 
-NavigatorWindow::NavigatorWindow(const NavigatorLook &_look,
-                                 const TaskLook &_look_task, const bool _inverse) noexcept
-  : look(_look), look_task(_look_task), inverse(_inverse), dragging(false) {}
+NavigatorWindow::NavigatorWindow(
+  const NavigatorLook &_look, const TaskLook &_look_task,
+  const InfoBoxLook &_look_infobox, const bool _inverse) noexcept
+  : look(_look), look_task(_look_task), look_infobox(_look_infobox),
+    inverse(_inverse), dragging(false) {}
 
 void
 NavigatorWindow::ReadBlackboard(const AttitudeState _attitude) noexcept {
   attitude = _attitude;
-  Invalidate();
+  // Invalidate();
 }
 
 void
@@ -56,7 +59,7 @@ NavigatorWindow::OnPaint(Canvas &canvas) noexcept {
   // bool task_valid =
   //   CommonInterface::Full().Calculated().ordered_task_stats.task_valid;
   unsigned task_size{};
-  unsigned i{};
+  // unsigned i{};
 
   if (protected_task_manager != nullptr) {
     ProtectedTaskManager::Lease lease(*protected_task_manager);
@@ -69,7 +72,7 @@ NavigatorWindow::OnPaint(Canvas &canvas) noexcept {
     tp = lease->GetMode();
 
     if (lease->IsMode(TaskType::ORDERED)) {
-      i = task.GetActiveIndex();
+      auto i = task.GetActiveIndex();
       wp_current = task.GetActiveTaskPoint()->GetWaypointPtr();
       if (i == 0)
         waypoint_before = task.GetPoint(0).GetWaypointPtr();
@@ -92,7 +95,7 @@ NavigatorWindow::OnPaint(Canvas &canvas) noexcept {
   const int fnw_width = canvas.GetWidth();
   const PixelRect frame_navigator_waypoint{
     {fnw_width * 18 / 100, fnw_height * 1 / 10},
-    {fnw_width * 8 / 10, fnw_height * 5 / 10}};
+    {fnw_width * 8 / 10, fnw_height * 55 / 100}};
 
   NavigatorRenderer::DrawFrame(canvas, frame_navigator, look);
   NavigatorRenderer::DrawFrame(canvas, frame_navigator_waypoint, look);
@@ -104,7 +107,7 @@ NavigatorWindow::OnPaint(Canvas &canvas) noexcept {
 
   if (wp_current != nullptr)
     NavigatorRenderer::DrawText(
-      canvas, tp, *wp_current, canvas.GetRect(), look, inverse);
+      canvas, tp, *wp_current, canvas.GetRect(), look, look_infobox, inverse);
 
   // if (task_valid)
   NavigatorRenderer::DrawWaypointsIconsTitle(
@@ -259,7 +262,7 @@ NavigatorWidget::Update([[maybe_unused]] const MoreData &basic) noexcept {
   // NavigatorWindow &w = (NavigatorWindow &)GetWindow();
 
   NavWindow->ReadBlackboard(basic.attitude);
-  NavWindow->Invalidate();
+  // NavWindow->Invalidate();
 }
 
 void
@@ -271,7 +274,7 @@ NavigatorWidget::Prepare(ContainerWindow &parent, const PixelRect &rc) noexcept 
   style.Disable();
 
   NavWindow = std::make_unique<NavigatorWindow>(
-    look.navigator, look.map.task, look.info_box.inverse);
+    look.navigator, look.map.task, look.info_box, look.info_box.inverse);
   NavWindow->Create(parent, rc, style);
   // SetWindow(std::move(NavWindow));
 }

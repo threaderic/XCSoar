@@ -41,6 +41,7 @@ Copyright_License {
 #include "Language/Language.hpp"
 #include "Look/FontDescription.hpp"
 #include "Look/IconLook.hpp"
+#include "Look/InfoBoxLook.hpp"
 #include "Look/Look.hpp"
 #include "Look/MapLook.hpp"
 #include "Look/NavigatorLook.hpp"
@@ -59,6 +60,7 @@ Copyright_License {
 #include "UIGlobals.hpp"
 #include "UnitSymbolRenderer.hpp"
 #include "Units/System.hpp"
+#include "Units/Units.hpp"
 #include "Version.hpp"
 #include "Waypoint/Waypoint.hpp"
 #include "WaypointIconRenderer.hpp"
@@ -136,6 +138,7 @@ NavigatorRenderer::DrawText(
   [[maybe_unused]] const Waypoint &wp_current,
   const PixelRect &rc,
   [[maybe_unused]] const NavigatorLook &look,
+  [[maybe_unused]] const InfoBoxLook &iblook,
   bool inverse) noexcept {
   const auto &basic = CommonInterface::Basic();
   const auto &calculated = CommonInterface::Calculated();
@@ -262,7 +265,7 @@ NavigatorRenderer::DrawText(
   if (waypoint_distance < 5000.0)
     precision_waypoint_distance = 1;
 
-  FormatUserDistance(waypoint_distance, waypoint_distance_s.data(), true,
+  FormatUserDistance(waypoint_distance, waypoint_distance_s.data(), false,
                      precision_waypoint_distance);
 
 
@@ -289,7 +292,7 @@ NavigatorRenderer::DrawText(
       calculated.task_stats.current_leg.solution_remaining.GetRequiredAltitude();
   }
   FormatAltitude(waypoint_altitude_diff_s.data(), waypoint_altitude_diff,
-                 Units::GetUserAltitudeUnit(), true);
+                 Units::GetUserAltitudeUnit(), false);
   // TCHAR waypoint_altitude_diff_s[20];
   // FormatAltitude(
   //   waypoint_altitude_diff_s,
@@ -300,7 +303,7 @@ NavigatorRenderer::DrawText(
   StaticString<20> waypoint_average_speed_s;
   if (tp == TaskType::ORDERED && has_started) {
     FormatUserSpeed(calculated.task_stats.total.travelled.GetSpeed(),
-                    waypoint_average_speed_s.data(), true, 0);
+                    waypoint_average_speed_s.data(), false, 0);
   } else {
     waypoint_average_speed_s.Format("%s", "---");
   }
@@ -328,13 +331,13 @@ NavigatorRenderer::DrawText(
 
   // e_Speed_GPS
   StaticString<20> current_speed_s;
-  FormatUserSpeed(basic.ground_speed, current_speed_s.data(), true, 0);
+  FormatUserSpeed(basic.ground_speed, current_speed_s.data(), false, 0);
   // TCHAR current_speed_s[20];
   // FormatUserSpeed(basic.ground_speed, current_speed_s, true, 0);
 
   // e_HeightGPS
   StaticString<20> current_altitude_s;
-  FormatUserAltitude(basic.gps_altitude, current_altitude_s.data(), true);
+  FormatUserAltitude(basic.gps_altitude, current_altitude_s.data(), false);
   // TCHAR current_altitude_s[20];
   // FormatUserAltitude(basic.gps_altitude, current_altitude_s, true);
 
@@ -355,17 +358,18 @@ NavigatorRenderer::DrawText(
   }
 
   const int waypoint_direction = std::round(bearing_diff.AsDelta().Degrees());
-  waypoint_direction_s.Format("< %d°", waypoint_direction);
+  waypoint_direction_s.Format("%d°", waypoint_direction);
   // _stprintf(waypoint_direction_s, _T("< %d°"), waypoint_direction);
 
   StaticString<100> informations_next_waypoint1_s;
-  if (canvas.GetWidth() < canvas.GetHeight() * 4)
-    informations_next_waypoint1_s.Format(
-      "%s  %s", waypoint_distance_s.c_str(), waypoint_altitude_diff_s.c_str());
-  else
-    informations_next_waypoint1_s.Format(
-      "%s  %s  %s", waypoint_distance_s.c_str(),
-      waypoint_altitude_diff_s.c_str(), waypoint_GR_s.c_str());
+  informations_next_waypoint1_s.Format(
+    "%s   %s  %s", waypoint_distance_s.c_str(),
+    waypoint_altitude_diff_s.c_str(), waypoint_GR_s.c_str());
+
+  StaticString<100> informations_next_waypoint1_unit_s;
+  informations_next_waypoint1_unit_s.Format(
+    "%s   %s", waypoint_distance_s.c_str(), waypoint_altitude_diff_s.c_str());
+
   // TCHAR informations_next_waypoint1_s[100];
   // if (canvas.GetWidth() < canvas.GetHeight() * 4)
   //   _stprintf(informations_next_waypoint1_s, _T("%s  %s"), waypoint_distance_s,
@@ -382,7 +386,7 @@ NavigatorRenderer::DrawText(
   //          _T("%s (%s)"), time_local_s, time_elapsed_s);
 
   StaticString<20> times_arrival_planned_s;
-  if (canvas.GetWidth() > canvas.GetHeight() * 5)
+  if (canvas.GetWidth() > canvas.GetHeight() * 2.8)
     times_arrival_planned_s.Format(
       "%s (%s)", arrival_planned_s.c_str(), time_planned_s.c_str());
   else
@@ -394,8 +398,16 @@ NavigatorRenderer::DrawText(
   // else
   //   _stprintf(times_arrival_planned_s, _T("%s"), arrival_planned_s);
 
-  // RENDER TEXTS
+  // ---- RENDER TEXTS
+  // ---- Draw texts relative to current informations
   Font font;
+  PixelSize text_size{};
+  int text_height_position{};
+  unsigned int font_height{};
+  unsigned int unit_height{};
+  unsigned int ascent_height{};
+  PixelPoint unit_p{};
+  Unit unit{Unit::KILOMETER};
 
   canvas.SetBackgroundTransparent();
 
@@ -404,113 +416,200 @@ NavigatorRenderer::DrawText(
   else
     canvas.SetTextColor(COLOR_WHITE);
 
-  // Draw texts relative to next waypoint
-  // -- Waypoint informations: distance, altitude, glide ratio
-  font.Load(FontDescription(Layout::VptScale(rc_height * 32 / 200)));
-  canvas.Select(font);
+  // -- Draw Waypoint informations: distance, altitude, glide ratio
+  if (canvas.GetWidth() > canvas.GetHeight() * 3.7)
+    font_height = rc_height * 35 / 200;
+  else
+    font_height = rc_height * 26 / 200;
 
+  PixelPoint pixelpoint_informations_next_waypoint1{
+    static_cast<int>(rc_width * 40 / 200), static_cast<int>(rc_height * 10 / 100)};
+
+  font.Load(FontDescription(Layout::VptScale(font_height)));
+  canvas.Select(font);
   canvas.DrawClippedText(
-    {static_cast<int>(rc_width * 40 / 200), static_cast<int>(rc_height * 8 / 100)},
+    pixelpoint_informations_next_waypoint1,
     {{0, 0}, {static_cast<int>(rc_width * 2 / 3), static_cast<int>(rc_height)}},
     informations_next_waypoint1_s);
 
-  // Next waypoint's name
-  font.Load(FontDescription(Layout::VptScale(rc_height * 48 / 200)));
+  // Draw Waypoint units
+  unit = Units::GetUserDistanceUnit();
+  unit_height = static_cast<unsigned int>(font_height * 4 / 10);
+  text_size = canvas.CalcTextSize(waypoint_distance_s.c_str());
+  font.Load(FontDescription(Layout::VptScale(unit_height)));
+  ascent_height = UnitSymbolRenderer::GetAscentHeight(font, unit);
+  unit_p = pixelpoint_informations_next_waypoint1.At(
+    text_size.width, text_size.height - ascent_height * 1.6);
   canvas.Select(font);
+  UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
 
+  unit = Units::GetUserAltitudeUnit();
+  font.Load(FontDescription(Layout::VptScale(font_height)));
+  text_size = canvas.CalcTextSize(informations_next_waypoint1_unit_s.c_str());
+  font.Load(FontDescription(Layout::VptScale(unit_height)));
+  ascent_height = UnitSymbolRenderer::GetAscentHeight(font, unit);
+  unit_p = pixelpoint_informations_next_waypoint1.At(
+    text_size.width, text_size.height - ascent_height * 1.6);
+  canvas.Select(font);
+  UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
+
+  // -- Next waypoint's name
+  if (canvas.GetWidth() > canvas.GetHeight() * 3.7)
+    font_height = rc_height * 42 / 200;
+  else
+    font_height = rc_height * 30 / 200;
+
+  font.Load(FontDescription(Layout::VptScale(font_height)));
+  canvas.Select(font);
   canvas.DrawClippedText(
-    {static_cast<int>(rc_width * 40 / 200), static_cast<int>(rc_height * 25 / 100)},
+    {static_cast<int>(rc_width * 40 / 200), static_cast<int>(rc_height * 31 / 100)},
     {{0, 0}, {static_cast<int>(rc_width * 13 / 20), static_cast<int>(rc_height)}},
     waypoint_name_s);
 
-  // Draw texts relative to current informations
-  // -- Waypoint's direction
-  if (canvas.GetWidth() > canvas.GetHeight() * 4.1)
-    font.Load(FontDescription(Layout::VptScale(rc_height * 29 / 200)));
-  else
-    font.Load(FontDescription(Layout::VptScale(rc_height * 22 / 200)));
+  // ---- Current speed / Waypoint's direction / Current Altitude
+  int placement_text_horizontal{};
+  int text_width{};
 
-  canvas.Select(font);
-  if (canvas.GetWidth() > canvas.GetHeight() * 3.2)
-    canvas.DrawClippedText(
-      {static_cast<int>(rc_width * 81 / 100),
-       static_cast<int>(rc_height * 23 / 100)},
-      {{0, 0}, {static_cast<int>(rc_width), static_cast<int>(rc_height)}},
-      waypoint_direction_s);
+  if (canvas.GetWidth() > canvas.GetHeight() * 3.7) {
+    font_height = rc_height * 29 / 200;
+    text_width = 30;
+    placement_text_horizontal = rc_width * 90 / 100 - text_width;
+  } else {
+    font_height = rc_height * 22 / 200;
+    text_width = 20;
+    placement_text_horizontal = rc_width * 90 / 100 - text_width;
+  }
 
-  // -- Current speed
-  if (canvas.GetWidth() > canvas.GetHeight() * 3.2)
+
+  if (canvas.GetWidth() > canvas.GetHeight() * 3.1) {
+    // -- Current speed
+    font.Load(FontDescription(Layout::VptScale(font_height)));
+    const PixelPoint pixelpoint_current_speed{
+      placement_text_horizontal, static_cast<int>(rc_height * 8 / 100)};
+    canvas.Select(font);
     canvas.DrawClippedText(
-      {static_cast<int>(rc_width * 81 / 100),
-       static_cast<int>(rc_height * 8 / 100)},
+      pixelpoint_current_speed,
       {{0, 0}, {static_cast<int>(rc_width), static_cast<int>(rc_height)}},
       current_speed_s);
 
-  // -- Current Altitude
-  if (canvas.GetWidth() > canvas.GetHeight() * 3.2)
+    // Draw speed units
+    unit = Units::GetUserSpeedUnit();
+    unit_height = static_cast<unsigned int>(font_height * 38 / 100);
+    font.Load(FontDescription(Layout::VptScale(unit_height)));
+    text_size = canvas.CalcTextSize(current_speed_s.c_str());
+    ascent_height = UnitSymbolRenderer::GetAscentHeight(iblook.unit_font, unit);
+    unit_p = pixelpoint_current_speed.At(text_size.width, text_size.height / 10);
+    canvas.Select(font);
+    UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
+
+    // -- Waypoint's direction
+    font.Load(FontDescription(Layout::VptScale(font_height)));
+    canvas.Select(font);
     canvas.DrawClippedText(
-      {static_cast<int>(rc_width * 81 / 100),
-       static_cast<int>(rc_height * 38 / 100)},
+      {placement_text_horizontal, static_cast<int>(rc_height * 25 / 100)},
+      {{0, 0}, {static_cast<int>(rc_width), static_cast<int>(rc_height)}},
+      waypoint_direction_s);
+
+    // -- Current Altitude
+    font.Load(FontDescription(Layout::VptScale(font_height)));
+    const PixelPoint pixelpoint_altitude{
+      placement_text_horizontal, static_cast<int>(rc_height * 43 / 100)};
+    canvas.Select(font);
+    canvas.DrawClippedText(
+      pixelpoint_altitude,
       {{0, 0}, {static_cast<int>(rc_width), static_cast<int>(rc_height)}},
       current_altitude_s);
 
+    // Draw Altitude unit
+    unit = Units::GetUserAltitudeUnit();
+    unit_height = static_cast<unsigned int>(font_height * 0.5);
+    font.Load(FontDescription(Layout::VptScale(unit_height)));
+    text_size = canvas.CalcTextSize(current_altitude_s.c_str());
+    ascent_height = UnitSymbolRenderer::GetAscentHeight(iblook.unit_font, unit);
+    unit_p = pixelpoint_altitude.At(text_size.width, text_size.height / 2.2);
+    UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
+  }
+
   // -- Task informations: average speed
-  if (canvas.GetWidth() < canvas.GetHeight() * 6)
-    font.Load(FontDescription(Layout::VptScale(rc_height * 25 / 200)));
+  if (canvas.GetWidth() > canvas.GetHeight() * 3.4)
+    font_height = rc_height * 35 / 200;
   else
+    font_height = rc_height * 24 / 200;
+
+  font.Load(FontDescription(Layout::VptScale(font_height)));
+  text_size = canvas.CalcTextSize(waypoint_average_speed_s.c_str());
+  PixelPoint pixelpoint_average_speed{static_cast<int>(rc_width * 5 / 200 + 6),
+                                      static_cast<int>(rc_height * 8 / 100)};
+  canvas.Select(font);
+  canvas.DrawClippedText(
+    pixelpoint_average_speed,
+    {{0, 0}, {static_cast<int>(rc_width), static_cast<int>(rc_height)}},
+    waypoint_average_speed_s);
+
+  // Draw average speed unit
+  unit = Units::GetUserTaskSpeedUnit();
+  unit_height = static_cast<unsigned int>(font_height * 0.5);
+  font.Load(FontDescription(Layout::VptScale(unit_height)));
+  ascent_height = UnitSymbolRenderer::GetAscentHeight(font, unit);
+  unit_p = pixelpoint_average_speed.At(text_size.width, text_size.height / 10);
+  UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
+
+  // ---- Draw texts relative to start / current / elapsed / planned times
+  if (canvas.GetWidth() > canvas.GetHeight() * 3.6)
     font.Load(FontDescription(Layout::VptScale(rc_height * 32 / 200)));
-
-  canvas.Select(font);
-
-  // std::cout << canvas.GetHeight() << std::endl;
-  if (canvas.GetWidth() > canvas.GetHeight() * 4)
-    canvas.DrawClippedText(
-      {static_cast<int>(rc_width * 5 / 200), static_cast<int>(rc_height * 8 / 100)},
-      {{0, 0}, {static_cast<int>(rc_width * 2 / 3), static_cast<int>(rc_height)}},
-      waypoint_average_speed_s);
-
-  // Draw texts relative to times / elapsed time / planned time
-  if (canvas.GetWidth() < canvas.GetHeight() * 4.1)
-    font.Load(FontDescription(Layout::VptScale(rc_height * 30 / 200)));
   else
-    font.Load(FontDescription(Layout::VptScale(rc_height * 40 / 200)));
+    font.Load(FontDescription(Layout::VptScale(rc_height * 24 / 200)));
 
-  canvas.Select(font);
+  text_size = canvas.CalcTextSize(times_local_elapsed_s.c_str());
+  text_height_position =
+    static_cast<int>(rc_height * 180 / 200 - text_size.height);
+  const PixelRect pixelrect_times{rc.BottomAligned(rc_width)};
 
-  const PixelRect pixelrect_times{rc.BottomAligned(rc_width * 50 / 200)};
-
+  // -- Draw text start time
   const PixelPoint pixelpoint_time_start{
-    static_cast<int>(rc_width * 12 / 200),
-    static_cast<int>(rc_height * 120 / 200)};
+    static_cast<int>(rc_width * 5 / 200 + 8), text_height_position};
   canvas.DrawClippedText(pixelpoint_time_start, pixelrect_times, time_start_s);
-
   const PixelRect pixelrect_time_elapsed{rc.BottomAligned(rc_width)};
+
+  // -- Draw text current time / elapsed time
+  int text_size_tmp{};
+  if (canvas.GetWidth() > canvas.GetHeight() * 2.8)
+    text_size_tmp = text_size.width * 3 / 4;
+  else
+    text_size_tmp = text_size.width / 2;
+
   const PixelPoint pixelpoint_time_elapsed{
-    static_cast<int>(rc_width * 55 / 200),
-    static_cast<int>(rc_height * 120 / 200)};
+    static_cast<int>(rc_width * 100 / 200 - text_size_tmp), text_height_position};
   canvas.DrawClippedText(
     pixelpoint_time_elapsed, pixelrect_time_elapsed, times_local_elapsed_s);
 
+  // -- Draw text planned time
+  text_size = canvas.CalcTextSize(times_arrival_planned_s.c_str());
   const PixelRect pixelrect_arrival_planned{rc.BottomAligned(rc_width)};
   const PixelPoint pixelpoint_times_arrival_planned{
-    static_cast<int>(rc_width * 155 / 200),
-    static_cast<int>(rc_height * 120 / 200)};
+    static_cast<int>(rc_width - (rc_width * 5 / 200 + 8) - text_size.width),
+    text_height_position};
   canvas.DrawClippedText(pixelpoint_times_arrival_planned,
                          pixelrect_arrival_planned, times_arrival_planned_s);
 
-
+  // -- Draw direction arrow / North direction
   NextArrowRenderer next_arrow{UIGlobals::GetLook().wind_arrow_info_box};
   PixelRect pixelrect_next_arrow{
     {static_cast<int>(rc_width * 2 / 5), -static_cast<int>(rc_height / 4)},
     {static_cast<int>(rc_height), static_cast<int>(rc_height)}};
-  pixelrect_next_arrow.Offset(rc_width / 5, rc_height * 1.1 / 10);
-
+  pixelrect_next_arrow.Offset(rc_width / 5, rc_height * 1.3 / 10);
 
   canvas.DrawAnnulus(
     {static_cast<int>(rc_width * 3 / 5) + static_cast<int>(rc_height) / 2,
-     +static_cast<int>(rc_height * 7 / 20)},
-    static_cast<int>(rc_height) * 20 / 100, static_cast<int>(rc_height) * 24 / 100,
-    -basic.track + Angle::Degrees(5), -basic.track + Angle::Degrees(350));
+     static_cast<int>(rc_height * 75 / 200)},
+    static_cast<int>(rc_height) * 18 / 100, static_cast<int>(rc_height) * 26 / 100,
+    -basic.track + Angle::Degrees(50), -basic.track + Angle::Degrees(310));
+
+  canvas.DrawAnnulus(
+    {static_cast<int>(rc_width * 3 / 5) + static_cast<int>(rc_height) / 2,
+     static_cast<int>(rc_height * 75 / 200)},
+    static_cast<int>(rc_height) * 18 / 100, static_cast<int>(rc_height) * 26 / 100,
+    -basic.track - Angle::Degrees(8), -basic.track + Angle::Degrees(8));
 
   next_arrow.DrawArrowScale(canvas, pixelrect_next_arrow, bearing_diff, 21);
 }

@@ -26,10 +26,12 @@ Copyright_License {
 
 #include "Engine/Waypoint/Ptr.hpp"
 #include "Engine/Task/TaskType.hpp"
+#include "Look/InfoBoxLook.hpp"
 
 struct PixelRect;
 struct PixelPoint;
 struct NavigatorLook;
+struct InfoBoxLook;
 struct AttitudeState;
 class Canvas;
 class TextRenderer;
@@ -53,7 +55,7 @@ DrawFrame(Canvas &canvas, const PixelRect &rc, const NavigatorLook &look) noexce
 */
 void
 DrawText(Canvas &canvas, TaskType tp, const Waypoint &wp_current, const PixelRect &rc,
-         const NavigatorLook &look, bool inverse) noexcept;
+         const NavigatorLook &look, const InfoBoxLook &iblook, bool inverse) noexcept;
 
 /**
 * Draw the progress of the current task with presntation of each taskpoint
