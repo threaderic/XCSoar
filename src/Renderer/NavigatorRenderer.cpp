@@ -323,7 +323,7 @@ NavigatorRenderer::DrawText(
   } else {
     waypoint_GR = std::round(calculated.task_stats.current_leg.gradient);
   }
-  waypoint_GR_s.Format("%d:1", waypoint_GR);
+  waypoint_GR_s.Format("%d", waypoint_GR);
   // TCHAR waypoint_GR_s[20];
   // const int waypoint_GR =
   //   std::round(calculated.ordered_task_stats.current_leg.gradient);
@@ -362,13 +362,24 @@ NavigatorRenderer::DrawText(
   // _stprintf(waypoint_direction_s, _T("< %d°"), waypoint_direction);
 
   StaticString<100> informations_next_waypoint1_s;
-  informations_next_waypoint1_s.Format(
+  if (canvas.GetWidth() > canvas.GetHeight() * 6.1)
+    informations_next_waypoint1_s.Format(
+      "%s   %s  %s  %s", waypoint_distance_s.c_str(),
+      waypoint_altitude_diff_s.c_str(), waypoint_GR_s.c_str(),
+      waypoint_direction_s.c_str());
+  else
+    informations_next_waypoint1_s.Format(
+      "%s   %s  %s", waypoint_distance_s.c_str(),
+      waypoint_altitude_diff_s.c_str(), waypoint_GR_s.c_str());
+
+  StaticString<60> informations_next_waypoint1_unit_alt_s;
+  informations_next_waypoint1_unit_alt_s.Format(
+    "%s   %s", waypoint_distance_s.c_str(), waypoint_altitude_diff_s.c_str());
+
+  StaticString<60> informations_next_waypoint1_unit_GR_s;
+  informations_next_waypoint1_unit_GR_s.Format(
     "%s   %s  %s", waypoint_distance_s.c_str(),
     waypoint_altitude_diff_s.c_str(), waypoint_GR_s.c_str());
-
-  StaticString<100> informations_next_waypoint1_unit_s;
-  informations_next_waypoint1_unit_s.Format(
-    "%s   %s", waypoint_distance_s.c_str(), waypoint_altitude_diff_s.c_str());
 
   // TCHAR informations_next_waypoint1_s[100];
   // if (canvas.GetWidth() < canvas.GetHeight() * 4)
@@ -443,9 +454,21 @@ NavigatorRenderer::DrawText(
   canvas.Select(font);
   UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
 
+  // Draw Waypoint units
   unit = Units::GetUserAltitudeUnit();
   font.Load(FontDescription(Layout::VptScale(font_height)));
-  text_size = canvas.CalcTextSize(informations_next_waypoint1_unit_s.c_str());
+  text_size = canvas.CalcTextSize(informations_next_waypoint1_unit_alt_s.c_str());
+  font.Load(FontDescription(Layout::VptScale(unit_height)));
+  ascent_height = UnitSymbolRenderer::GetAscentHeight(font, unit);
+  unit_p = pixelpoint_informations_next_waypoint1.At(
+    text_size.width, text_size.height - ascent_height * 1.6);
+  canvas.Select(font);
+  UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
+
+  // Draw GR units
+  unit = Unit::GRADIENT;
+  font.Load(FontDescription(Layout::VptScale(font_height)));
+  text_size = canvas.CalcTextSize(informations_next_waypoint1_unit_GR_s.c_str());
   font.Load(FontDescription(Layout::VptScale(unit_height)));
   ascent_height = UnitSymbolRenderer::GetAscentHeight(font, unit);
   unit_p = pixelpoint_informations_next_waypoint1.At(
@@ -466,22 +489,21 @@ NavigatorRenderer::DrawText(
     {{0, 0}, {static_cast<int>(rc_width * 13 / 20), static_cast<int>(rc_height)}},
     waypoint_name_s);
 
-  // ---- Current speed / Waypoint's direction / Current Altitude
+  // ---- Current speed / Current Altitude
   int placement_text_horizontal{};
   int text_width{};
 
-  if (canvas.GetWidth() > canvas.GetHeight() * 3.7) {
-    font_height = rc_height * 29 / 200;
+  if (canvas.GetWidth() > canvas.GetHeight() * 3.8) {
+    font_height = rc_height * 40 / 200;
     text_width = 30;
-    placement_text_horizontal = rc_width * 90 / 100 - text_width;
+    placement_text_horizontal = rc_width * 85 / 100 - text_width;
   } else {
-    font_height = rc_height * 22 / 200;
+    font_height = rc_height * 26 / 200;
     text_width = 20;
-    placement_text_horizontal = rc_width * 90 / 100 - text_width;
+    placement_text_horizontal = rc_width * 88 / 100 - text_width;
   }
 
-
-  if (canvas.GetWidth() > canvas.GetHeight() * 3.1) {
+  if (canvas.GetWidth() > canvas.GetHeight() * 3) {
     // -- Current speed
     font.Load(FontDescription(Layout::VptScale(font_height)));
     const PixelPoint pixelpoint_current_speed{
@@ -503,17 +525,17 @@ NavigatorRenderer::DrawText(
     UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
 
     // -- Waypoint's direction
-    font.Load(FontDescription(Layout::VptScale(font_height)));
-    canvas.Select(font);
-    canvas.DrawClippedText(
-      {placement_text_horizontal, static_cast<int>(rc_height * 25 / 100)},
-      {{0, 0}, {static_cast<int>(rc_width), static_cast<int>(rc_height)}},
-      waypoint_direction_s);
+    // font.Load(FontDescription(Layout::VptScale(font_height)));
+    // canvas.Select(font);
+    // canvas.DrawClippedText(
+    //   {placement_text_horizontal, static_cast<int>(rc_height * 25 / 100)},
+    //   {{0, 0}, {static_cast<int>(rc_width), static_cast<int>(rc_height)}},
+    //   waypoint_direction_s);
 
     // -- Current Altitude
     font.Load(FontDescription(Layout::VptScale(font_height)));
     const PixelPoint pixelpoint_altitude{
-      placement_text_horizontal, static_cast<int>(rc_height * 43 / 100)};
+      placement_text_horizontal, static_cast<int>(rc_height * 34 / 100)};
     canvas.Select(font);
     canvas.DrawClippedText(
       pixelpoint_altitude,
@@ -526,7 +548,7 @@ NavigatorRenderer::DrawText(
     font.Load(FontDescription(Layout::VptScale(unit_height)));
     text_size = canvas.CalcTextSize(current_altitude_s.c_str());
     ascent_height = UnitSymbolRenderer::GetAscentHeight(iblook.unit_font, unit);
-    unit_p = pixelpoint_altitude.At(text_size.width, text_size.height / 2.2);
+    unit_p = pixelpoint_altitude.At(text_size.width, text_size.height * 58 / 100);
     UnitSymbolRenderer::Draw(canvas, unit_p, unit, iblook.unit_fraction_pen);
   }
 
@@ -595,18 +617,18 @@ NavigatorRenderer::DrawText(
   // -- Draw direction arrow / North direction
   NextArrowRenderer next_arrow{UIGlobals::GetLook().wind_arrow_info_box};
   PixelRect pixelrect_next_arrow{
-    {static_cast<int>(rc_width * 2 / 5), -static_cast<int>(rc_height / 4)},
+    {static_cast<int>(rc_width * 38 / 100), -static_cast<int>(rc_height / 4)},
     {static_cast<int>(rc_height), static_cast<int>(rc_height)}};
   pixelrect_next_arrow.Offset(rc_width / 5, rc_height * 1.3 / 10);
 
   canvas.DrawAnnulus(
-    {static_cast<int>(rc_width * 3 / 5) + static_cast<int>(rc_height) / 2,
+    {static_cast<int>(rc_width * 58 / 100) + static_cast<int>(rc_height) / 2,
      static_cast<int>(rc_height * 75 / 200)},
     static_cast<int>(rc_height) * 18 / 100, static_cast<int>(rc_height) * 26 / 100,
     -basic.track + Angle::Degrees(50), -basic.track + Angle::Degrees(310));
 
   canvas.DrawAnnulus(
-    {static_cast<int>(rc_width * 3 / 5) + static_cast<int>(rc_height) / 2,
+    {static_cast<int>(rc_width * 58 / 100) + static_cast<int>(rc_height) / 2,
      static_cast<int>(rc_height * 75 / 200)},
     static_cast<int>(rc_height) * 18 / 100, static_cast<int>(rc_height) * 26 / 100,
     -basic.track - Angle::Degrees(8), -basic.track + Angle::Degrees(8));
