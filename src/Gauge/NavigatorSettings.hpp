@@ -2,7 +2,7 @@
 Copyright_License {
 
   XCSoar Glide Computer - http://www.xcsoar.org/
-  Copyright (C) 2000-2021 The XCSoar Project
+  Copyright (C) 2000-2022 The XCSoar Project
   A detailed list of copyright holders can be found in the file "AUTHORS".
 
   This program is free software; you can redistribute it and/or
@@ -21,36 +21,11 @@ Copyright_License {
 }
 */
 
-#include "UISettings.hpp"
+#pragma once
 
-void
-UISettings::SetDefaults()
-{
-  display.SetDefaults();
+struct NavigatorSettings {
 
-  menu_timeout = std::chrono::seconds{8 * 4};
+  unsigned navigator_height;
 
-  scale = 100;
-
-  custom_dpi = 0;  // automatic
-
-  thermal_assistant_position = ThermalAssistantPosition::BOTTOM_LEFT;
-
-  enable_airspace_warning_dialog = true;
-
-  popup_message_position = PopupMessagePosition::CENTER;
-
-  haptic_feedback = HapticFeedback::DEFAULT;
-
-  show_menu_button = true;
-
-  format.SetDefaults();
-  map.SetDefaults();
-  info_boxes.SetDefaults();
-  vario.SetDefaults();
-  traffic.SetDefaults();
-  navigator.SetDefaults();
-  pages.SetDefaults();
-  dialog.SetDefaults();
-  sound.SetDefaults();
-}
+  void SetDefaults();
+};

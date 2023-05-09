@@ -88,10 +88,11 @@ GetTopWidgetRect(const PixelRect &rc, const Widget *top_widget) noexcept
     return result;
   }
 
-  const unsigned requested_height = top_widget->GetMinimumSize().height;
+  const unsigned requested_height = rc.GetHeight() *
+    top_widget->GetMinimumSize().height / 100;
   unsigned height;
   if (requested_height > 0) {
-    const unsigned max_height = rc.GetHeight() * 30 / 100;
+    const unsigned max_height = rc.GetHeight() * 40 / 100;
     height = std::min(max_height, requested_height);
   } else {
     const unsigned recommended_height = rc.GetHeight() * 17 / 100;

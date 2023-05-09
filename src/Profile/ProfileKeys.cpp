@@ -235,6 +235,8 @@ const char FlarmSideData[] = "FlarmRadarSideData";
 const char FlarmAutoZoom[] = "FlarmRadarAutoZoom";
 const char FlarmNorthUp[] = "FlarmRadarNorthUp";
 
+const char NavigatorHeight[] = "NavigatorHeight";
+
 const char IgnoreNMEAChecksum[] = "IgnoreNMEAChecksum";
 const char MapOrientation[] = "DisplayOrientation";
 

@@ -34,6 +34,7 @@ namespace Profile {
   static void Load(const ProfileMap &map, DisplaySettings &settings);
   static void Load(const ProfileMap &map, FormatSettings &settings);
   static void Load(const ProfileMap &map, VarioSettings &settings);
+  static void Load(const ProfileMap &map, NavigatorSettings &settings);
   static void Load(const ProfileMap &map, TrafficSettings &settings);
   static void Load(const ProfileMap &map, DialogSettings &settings);
   static void Load(const ProfileMap &map, SoundSettings &settings);
@@ -67,6 +68,11 @@ Profile::Load(const ProfileMap &map, VarioSettings &settings)
   map.Get(ProfileKeys::AppGaugeVarioGross, settings.show_gross);
   map.Get(ProfileKeys::AppAveNeedle, settings.show_average_needle);
   map.Get(ProfileKeys::AppAveThermalNeedle, settings.show_thermal_average_needle);
+}
+
+void
+Profile::Load(const ProfileMap &map, NavigatorSettings &settings) {
+  map.Get(ProfileKeys::NavigatorHeight, settings.navigator_height);
 }
 
 void
@@ -154,6 +160,7 @@ Profile::Load(const ProfileMap &map, UISettings &settings)
   Load(map, settings.format);
   Load(map, settings.map);
   Load(map, settings.info_boxes);
+  Load(map, settings.navigator);
   Load(map, settings.vario);
   Load(map, settings.traffic);
   Load(map, settings.pages);

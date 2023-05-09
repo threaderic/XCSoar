@@ -110,6 +110,8 @@ public:
   void Move(const PixelRect &rc) noexcept override;
   bool SetFocus() noexcept override;
 
+  PixelSize GetMinimumSize() const noexcept override;
+
   NavigatorWindow* GetWindow() noexcept {
     return NavWindow.get();
   }

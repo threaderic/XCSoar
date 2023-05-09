@@ -30,6 +30,7 @@
 #include "Task/Points/TaskWaypoint.hpp"
 #include "Task/TaskType.hpp"
 #include "Task/Unordered/GotoTask.hpp"
+#include "UISettings.hpp"
 #include "ui/canvas/Canvas.hpp"
 #include <iostream>
 
@@ -308,6 +309,12 @@ bool
 NavigatorWidget::SetFocus() noexcept {
   return false;
 }
+
+PixelSize
+NavigatorWidget::GetMinimumSize() const noexcept {
+  return PixelSize{CommonInterface::GetUISettings().navigator.navigator_height};
+}
+
 
 void
 NavigatorWidget::OnGPSUpdate(const MoreData &basic) noexcept {
