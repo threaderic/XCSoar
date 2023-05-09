@@ -165,6 +165,7 @@ PageActions::Next()
 
   Update();
   RestoreMapZoom();
+  CommonInterface::main_window->ReinitialiseLayout();
 }
 
 unsigned
@@ -195,6 +196,7 @@ PageActions::Prev()
 
   Update();
   RestoreMapZoom();
+  CommonInterface::main_window->ReinitialiseLayout();
 }
 
 static void
