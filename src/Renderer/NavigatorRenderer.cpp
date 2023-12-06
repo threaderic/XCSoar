@@ -484,12 +484,12 @@ NavigatorRenderer::DrawText(
     pos_x_speed_altitude = rc_width * 96 / 100 - size_text.width -
       rc_height * 16 / 100;
     pos_y_current_speed_s = static_cast<int>(rc_height * 10 / 100);
-    pos_y_current_altitude_s = static_cast<int>(rc_height * 37 / 100);
+    pos_y_current_altitude_s = static_cast<int>(rc_height * 35 / 100);
   } else {
     pos_x_speed_altitude = rc_width * 103 / 100 - size_text.width -
       rc_height * 29 / 100;
     pos_y_current_speed_s = static_cast<int>(rc_height * 13 / 100);
-    pos_y_current_altitude_s = static_cast<int>(rc_height * 44 / 100);
+    pos_y_current_altitude_s = static_cast<int>(rc_height * 42 / 100);
   }
 
   if (canvas.GetWidth() > canvas.GetHeight() * 2.3) {
@@ -586,7 +586,7 @@ NavigatorRenderer::DrawText(
 
   size_text = canvas.CalcTextSize(times_local_elapsed_s.c_str());
   const int pos_y_text_times{
-    static_cast<int>(rc_height * 180 / 200 - size_text.height)};
+    static_cast<int>(rc_height * 183 / 200 - size_text.height)};
   const PixelRect pxrect_sz_time_start_s{rc.BottomAligned(rc_width)};
 
   // -- Draw text start time
